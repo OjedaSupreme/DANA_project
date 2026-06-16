@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../Pailero"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "Pailero"
+	}
+}

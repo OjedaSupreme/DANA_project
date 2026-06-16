@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Ordenes | Paileria</title>
+    <style>
+        :root {
+            --bg-main: #144674;
+            --bg-line: #0ec7ff;
+            --bg-line-dark: #0ca9dc;
+            --text-main: #f1f6fb;
+            --btn-bg: #c9c9cb;
+            --btn-border: #8b8b8d;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #e6eaef;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+        }
+
+        .hero {
+            background: var(--bg-main);
+            width: min(96vw, 1500px);
+            min-height: 460px;
+            padding: 28px 30px 0;
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+        }
+
+        .header {
+            max-width: 1180px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .title {
+            margin: 0;
+            color: var(--text-main);
+            font-size: clamp(30px, 3vw, 42px);
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .logo {
+            width: 170px;
+            height: 92px;
+            border: 3px solid #b7d1e0;
+            transform: rotate(-1deg) skewX(-20deg);
+            background: linear-gradient(#f5f7fa 0 40%, #2e2a2f 40% 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 0 4px #226998;
+        }
+
+        .logo span {
+            transform: skewX(20deg);
+            font-weight: 900;
+            font-size: 48px;
+            color: #1f2428;
+            text-shadow: 1px 1px 0 #fff;
+        }
+
+        .menu {
+            max-width: 1320px;
+            margin: 88px auto 0;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(180px, 1fr));
+            gap: 34px;
+        }
+
+        .menu button {
+            min-height: 94px;
+            border: 3px solid var(--btn-border);
+            border-radius: 16px;
+            background: var(--btn-bg);
+            color: #151515;
+            font-weight: 800;
+            font-size: clamp(26px, 1.9vw, 37px);
+            cursor: pointer;
+            transition: transform 0.12s ease, filter 0.12s ease;
+        }
+
+        .menu .menu-link {
+            min-height: 94px;
+            border: 3px solid var(--btn-border);
+            border-radius: 16px;
+            background: var(--btn-bg);
+            color: #151515;
+            font-weight: 800;
+            font-size: clamp(26px, 1.9vw, 37px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform 0.12s ease, filter 0.12s ease;
+        }
+
+        .menu button:hover {
+            transform: translateY(-1px);
+            filter: brightness(0.98);
+        }
+
+        .menu .menu-link:hover {
+            transform: translateY(-1px);
+            filter: brightness(0.98);
+        }
+
+        .menu button:active {
+            transform: translateY(1px);
+        }
+
+        .menu .menu-link:active {
+            transform: translateY(1px);
+        }
+
+        .footer-lines {
+            margin-top: 62px;
+        }
+
+        .line {
+            width: 100%;
+        }
+
+        .line.one {
+            height: 6px;
+            background: var(--bg-line);
+        }
+
+        .line.two {
+            height: 18px;
+            background: var(--bg-line-dark);
+            margin-top: 2px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 30, 40, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            z-index: 999;
+        }
+
+        .modal-overlay:target {
+            display: flex;
+        }
+
+        .modal-window {
+            width: min(1020px, 100%);
+            background: #d9d9d9;
+            border: 1px solid #aeaeae;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+            border-radius: 4px;
+            padding: 22px 28px 20px;
+            color: #111;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            right: 10px;
+            top: 8px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid #8f8f8f;
+            background: #f5f5f5;
+            text-decoration: none;
+            color: #3d3d3d;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+        }
+
+        .modal-title {
+            margin: 2px 0 18px;
+            text-align: center;
+            font-size: 40px;
+            font-weight: 700;
+        }
+
+        .order-grid {
+            display: grid;
+            grid-template-columns: 110px 1fr 125px 1fr 95px 1.8fr;
+            gap: 14px 12px;
+            align-items: center;
+            font-size: 30px;
+        }
+
+        .order-grid .label {
+            font-weight: 600;
+        }
+
+        .field-box {
+            background: #d3d3d3;
+            min-height: 34px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #55718f;
+            font-size: 33px;
+            padding: 2px 8px;
+        }
+
+        .field-box.left {
+            justify-content: flex-start;
+            padding-left: 14px;
+        }
+
+        .desc-label {
+            grid-column: 1 / span 2;
+        }
+
+        .desc-box {
+            grid-column: 3 / -1;
+        }
+
+        .upload-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .clip {
+            font-size: 42px;
+            line-height: 1;
+            color: #111;
+        }
+
+        .order-actions {
+            margin-top: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+        }
+
+        .folio-preview {
+            width: 98px;
+            height: 34px;
+            border: 3px solid #249b7f;
+            background: #ececec;
+        }
+
+        .submit-order {
+            width: 360px;
+            min-height: 92px;
+            border-radius: 14px;
+            border: 3px solid #8f8f8f;
+            background: #d8d8d8;
+            font-size: 45px;
+            font-weight: 700;
+        }
+
+        .notice {
+            margin-top: 28px;
+            width: 320px;
+            background: #d8d8d8;
+            border: 1px solid #c4c4c4;
+            padding: 10px 14px 12px;
+        }
+
+        .notice h3 {
+            margin: 0 0 12px;
+            text-align: center;
+            font-size: 36px;
+        }
+
+        .notice p {
+            margin: 0 0 10px;
+            font-size: 35px;
+            line-height: 1.25;
+        }
+
+        .notice .folio-value {
+            width: 196px;
+            margin: 0 auto 10px;
+            min-height: 34px;
+            font-size: 35px;
+        }
+
+        .notice .ok-btn {
+            display: block;
+            margin: 0 auto;
+            width: 86px;
+            min-height: 34px;
+            font-size: 34px;
+            border: 2px solid #8a8a8a;
+            border-radius: 8px;
+            background: #d8d8d8;
+            font-weight: 700;
+        }
+
+        @media (max-width: 980px) {
+            body {
+                padding: 16px;
+                align-items: flex-start;
+            }
+
+            .hero {
+                min-height: 420px;
+                border-radius: 8px;
+            }
+
+            .menu {
+                grid-template-columns: repeat(2, minmax(180px, 1fr));
+                margin-top: 45px;
+            }
+
+            .title {
+                font-size: 28px;
+            }
+
+            .modal-title {
+                font-size: 30px;
+            }
+
+            .order-grid {
+                grid-template-columns: 1fr;
+                font-size: 20px;
+            }
+
+            .desc-label,
+            .desc-box {
+                grid-column: auto;
+            }
+
+            .field-box {
+                justify-content: flex-start;
+                padding-left: 12px;
+                font-size: 22px;
+            }
+
+            .submit-order {
+                width: 260px;
+                min-height: 68px;
+                font-size: 32px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .hero {
+                min-height: 420px;
+                width: 100%;
+                padding: 18px 14px 0;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .menu {
+                grid-template-columns: 1fr;
+            }
+
+            .notice {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <header class="header">
+            <h1 class="title">Registro de ordenes de trabajo paileria</h1>
+            <div class="logo" aria-label="Logo empresa">
+                <span>DANA</span>
+            </div>
+        </header>
+
+        <main class="menu">
+            <a class="menu-link" href="#nueva-orden-modal">Ingresar nueva orden</a>
+            <button type="button">Editar orden</button>
+            <button type="button">Visualizar orden</button>
+            <button type="button">Administrar orden</button>
+        </main>
+
+        <div class="footer-lines">
+            <div class="line one"></div>
+            <div class="line two"></div>
+        </div>
+    </section>
+
+    <section class="modal-overlay" id="nueva-orden-modal" aria-label="Ingresar nueva orden de trabajo">
+        <div class="modal-window">
+            <a class="modal-close" href="#" aria-label="Cerrar ventana">X</a>
+            <h2 class="modal-title">Ingresar nueva orden de trabajo</h2>
+
+            <div class="order-grid">
+                <span class="label">Fecha:</span>
+                <div class="field-box">Today</div>
+                <span class="label">Num. Empleado:</span>
+                <div class="field-box">Numerico</div>
+                <span class="label">Nombre:</span>
+                <div class="field-box left">Vlookup del Nombre de empleado</div>
+
+                <span class="label">Unidad:</span>
+                <div class="field-box">Lista desplegable</div>
+                <span class="label">Area:</span>
+                <div class="field-box">Lista desplegable</div>
+                <span class="label">Prioridad:</span>
+                <div class="field-box">Lista desplegable</div>
+
+                <span class="label">Mobiliario:</span>
+                <div class="field-box">Texto</div>
+                <span class="label desc-label">Breve descripcion del requerimiento:</span>
+                <div class="field-box desc-box">Texto (50 caracteres)</div>
+
+                <span class="label">Plano / Boceto:</span>
+                <div class="upload-row">
+                    <div class="field-box" style="width: 160px;">Adjuntar</div>
+                    <span class="clip" aria-hidden="true">📎</span>
+                </div>
+            </div>
+
+            <div class="order-actions">
+                <div class="folio-preview" aria-hidden="true"></div>
+                <button type="button" class="submit-order">Ingresar Orden</button>
+            </div>
+
+            <div class="notice">
+                <h3>Atencion</h3>
+                <p>Se ha creado una orden de trabajo con el Folio:</p>
+                <div class="field-box folio-value">Folio</div>
+                <button type="button" class="ok-btn">ok</button>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
