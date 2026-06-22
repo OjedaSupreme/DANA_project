@@ -312,7 +312,7 @@
           <div class="brand-mark">D</div>
           <div>
             <div class="brand-title">DANA Solicitud de material</div>
-            <div class="brand-sub" id="brand-sub">Version local lista para SharePoint</div>
+            <div class="brand-sub" id="brand-sub">Conectando con la base de datos...</div>
           </div>
         </div>
       <div class="stack">
@@ -329,9 +329,9 @@
         <div class="pill ok">App lista para usar</div>
         <h1 class="hero-title">Control de solicitudes, surtido y catalogo en una sola vista</h1>
         <p class="hero-text">
-          Esta version trabaja totalmente en el navegador y puede sincronizarse con SharePoint.
-          Guarda usuarios, catalogo y solicitudes en este equipo para que puedas abrirla, probarla y
-          modificarla sin depender de otra aplicacion.
+          DANA guarda usuarios, catalogo y solicitudes en Supabase (nube).
+          Produccion crea solicitudes, Almacen las surte y Administrador gestiona el catalogo.
+          Abre la app en varios equipos y veras los mismos datos actualizados.
         </p>
         <div class="hero-grid">
           <div class="mini-card">
@@ -682,6 +682,8 @@
   </div>
   <div class="toast" id="toast"></div>
 
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const STORAGE_KEY = 'dana_material_local_v2';
 const AUTH_KEY = 'dana_material_auth_v2';
@@ -699,6 +701,21 @@ const SHAREPOINT_LISTS = {
 const SHAREPOINT_ENABLED = location.protocol === 'https:' && location.hostname.includes('sharepoint.com');
 const SYNC_INTERVAL_MS = 2500;
 const SYNC_INTERVAL_HIDDEN_MS = 8000;
+
+function initSupabaseClient(){
+  if(SHAREPOINT_ENABLED) return null;
+  if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return null;
+  if(String(window.SUPABASE_URL).includes('TU-PROYECTO')) return null;
+  if(typeof window.supabase === 'undefined') return null;
+  try{
+    return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  }catch(e){
+    return null;
+  }
+}
+
+const supabaseClient = initSupabaseClient();
+const SUPABASE_ENABLED = !!supabaseClient;
 let sharepointDigest = '';
 let sharepointDigestExpires = 0;
 let isSaving = false;
@@ -761,6 +778,17 @@ function normalizeState(input){
   return normalized;
 }
 
+function loadLocalStateCache(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object') return normalizeState(parsed);
+    }
+  }catch(e){}
+  return defaultState();
+}
+
 function loadState(){
   const remote = loadSharePointState();
   if(remote){
@@ -773,14 +801,7 @@ function loadState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
     return seeded;
   }
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && typeof parsed === 'object') return normalizeState(parsed);
-    }
-  }catch(e){}
-  return defaultState();
+  return loadLocalStateCache();
 }
 
 function loadAuth(){
@@ -886,6 +907,254 @@ function mergeStates(local, remote, dirtyKeys){
   });
 }
 
+function supabaseRemoteKey(table, row){
+  if(table === 'usuarios') return String(row.id || '');
+  if(table === 'catalogo_bom') return String(row.id || '');
+  if(table === 'solicitudes') return String(row.folio || '');
+  if(table === 'solicitud_detalles') return String(row.line_key || '');
+  return String(row.id || '');
+}
+
+async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictColumn){
+  const { data: remoteItems, error } = await supabaseClient.from(table).select('*');
+  if(error) throw error;
+
+  const localKeys = new Set();
+  const payloads = [];
+  for(const item of localItems){
+    const payload = payloadOf(item);
+    const key = String(keyOf(item) || payload[conflictColumn] || '');
+    if(!key) continue;
+    localKeys.add(key);
+    payloads.push(payload);
+  }
+
+  if(payloads.length){
+    const { error: upsertError } = await supabaseClient
+      .from(table)
+      .upsert(payloads, { onConflict: conflictColumn });
+    if(upsertError) throw upsertError;
+  }
+
+  const deleteKeys = (remoteItems || [])
+    .map(row => supabaseRemoteKey(table, row))
+    .filter(key => key && !localKeys.has(key));
+
+  if(!deleteKeys.length) return;
+
+  if(table === 'usuarios'){
+    const { error: delError } = await supabaseClient.from(table).delete().in('id', deleteKeys);
+    if(delError) throw delError;
+  }else if(table === 'catalogo_bom'){
+    const { error: delError } = await supabaseClient.from(table).delete().in('id', deleteKeys.map(Number));
+    if(delError) throw delError;
+  }else if(table === 'solicitudes'){
+    const { error: delError } = await supabaseClient.from(table).delete().in('folio', deleteKeys);
+    if(delError) throw delError;
+  }else if(table === 'solicitud_detalles'){
+    const { error: delError } = await supabaseClient.from(table).delete().in('line_key', deleteKeys);
+    if(delError) throw delError;
+  }
+}
+
+async function loadSupabaseState(){
+  if(!supabaseClient) return null;
+
+  const [
+    { data: meta, error: metaErr },
+    { data: usuarios, error: userErr },
+    { data: catalogo, error: catErr },
+    { data: solicitudes, error: solErr },
+    { data: detalles, error: detErr }
+  ] = await Promise.all([
+    supabaseClient.from('app_meta').select('request_seq').eq('id', 1).maybeSingle(),
+    supabaseClient.from('usuarios').select('id,nombre,usuario,contrasena,rol,activo').eq('activo', true),
+    supabaseClient.from('catalogo_bom').select('id,area,no_parte,material_codigo,descripcion,activo').eq('activo', true),
+    supabaseClient.from('solicitudes').select('*'),
+    supabaseClient.from('solicitud_detalles').select('*')
+  ]);
+
+  const firstError = metaErr || userErr || catErr || solErr || detErr;
+  if(firstError) throw firstError;
+
+  const total = (usuarios?.length || 0) + (catalogo?.length || 0) + (solicitudes?.length || 0) + (detalles?.length || 0);
+  if(total === 0) return null;
+
+  const solicitudMap = new Map((solicitudes || []).map(s => [String(s.folio || ''), s]));
+  const requests = (detalles || []).map(d => {
+    const folio = String(d.folio_solicitud || '');
+    const header = solicitudMap.get(folio) || {};
+    return {
+      id: Number(d.id) || nextId([]),
+      lineKey: String(d.line_key || `${folio}-${d.id || Date.now()}`),
+      requestCode: folio,
+      createdAt: header.fecha_creacion || '',
+      requester: header.solicitado_por || header.solicitado_por_usuario || '',
+      area: header.area || '',
+      part: d.no_parte || '',
+      code: d.material_codigo || '',
+      desc: d.descripcion || '',
+      qtyRequested: Number(d.cantidad_solicitada) || 1,
+      qtySupplied: Number(d.cantidad_surtida) || 0,
+      status: d.estatus_linea || header.estatus || 'pendiente',
+      suppliedBy: d.surtido_por || header.surtido_por || '',
+      suppliedAt: d.fecha_atendida || header.fecha_atendida || ''
+    };
+  });
+
+  const normalizedCatalog = (catalogo || []).map(item => ({
+    id: Number(item.id) || nextId([]),
+    area: item.area || '',
+    part: item.no_parte || '',
+    code: item.material_codigo || '',
+    desc: item.descripcion || ''
+  })).filter(x => x.area || x.part || x.code || x.desc);
+
+  const normalizedUsers = (usuarios || []).map(item => ({
+    id: String(item.id || ''),
+    name: String(item.nombre || ''),
+    user: String(item.usuario || ''),
+    pass: String(item.contrasena || ''),
+    role: String(item.rol || 'produccion')
+  })).filter(u => u.id || u.user);
+
+  const maxFolio = Math.max(0, ...(solicitudes || []).map(s => Number(s.folio) || 0));
+
+  return normalizeState({
+    requestSeq: Math.max(Number(meta?.request_seq) || 0, maxFolio),
+    users: normalizedUsers,
+    catalog: normalizedCatalog,
+    requests
+  });
+}
+
+async function saveSupabaseState(nextState){
+  if(!supabaseClient) return null;
+  const normalized = normalizeState(nextState);
+
+  const { error: metaError } = await supabaseClient
+    .from('app_meta')
+    .upsert({ id: 1, request_seq: normalized.requestSeq }, { onConflict: 'id' });
+  if(metaError) throw metaError;
+
+  await syncSupabaseTable(
+    'usuarios',
+    normalized.users,
+    item => String(item.id || item.user || item.name || ''),
+    item => ({
+      id: String(item.id || item.user || item.name || ''),
+      nombre: String(item.name || ''),
+      usuario: String(item.user || ''),
+      contrasena: String(item.pass || ''),
+      rol: String(item.role || 'produccion'),
+      activo: true
+    }),
+    'id'
+  );
+
+  await syncSupabaseTable(
+    'catalogo_bom',
+    normalized.catalog,
+    item => String(item.id || `${item.area}|${item.part}|${item.code}`),
+    item => {
+      const payload = {
+        area: String(item.area || ''),
+        no_parte: String(item.part || ''),
+        material_codigo: String(item.code || ''),
+        descripcion: String(item.desc || ''),
+        activo: true
+      };
+      if(Number(item.id)) payload.id = Number(item.id);
+      return payload;
+    },
+    'id'
+  );
+
+  const grouped = groupRequestsByCode(normalized.requests);
+  await syncSupabaseTable(
+    'solicitudes',
+    grouped,
+    item => String(item.Folio || ''),
+    item => ({
+      folio: String(item.Folio || ''),
+      solicitado_por: String(item.SolicitadoPor || ''),
+      solicitado_por_usuario: String(item.SolicitadoPorUsuario || item.SolicitadoPor || ''),
+      area: String(item.Area || ''),
+      estatus: String(item.Estatus || 'pendiente'),
+      fecha_creacion: String(item.FechaCreacion || ''),
+      fecha_atendida: String(item.FechaAtendida || ''),
+      surtido_por: String(item.SurtidoPor || ''),
+      tiempo_atencion_min: Number(item.TiempoAtencionMin || 0),
+      observaciones: String(item.Observaciones || '')
+    }),
+    'folio'
+  );
+
+  await syncSupabaseTable(
+    'solicitud_detalles',
+    normalized.requests,
+    item => String(item.lineKey || `${item.requestCode}-${item.id}`),
+    item => ({
+      line_key: String(item.lineKey || `${item.requestCode}-${item.id}`),
+      folio_solicitud: String(item.requestCode || ''),
+      no_parte: String(item.part || ''),
+      material_codigo: String(item.code || ''),
+      descripcion: String(item.desc || ''),
+      cantidad_solicitada: Number(item.qtyRequested || 1),
+      cantidad_surtida: Number(item.qtySupplied || 0),
+      estatus_linea: String(item.status || 'pendiente'),
+      surtido_por: String(item.suppliedBy || ''),
+      fecha_atendida: String(item.suppliedAt || '')
+    }),
+    'line_key'
+  );
+
+  return normalized;
+}
+
+async function syncSupabaseState(){
+  if(!SUPABASE_ENABLED || isSaving) return;
+  isSyncing = true;
+  updateSyncStatus(true);
+  try{
+    const remote = await loadSupabaseState();
+    if(!remote) return;
+    const remoteHash = JSON.stringify(normalizeState(remote));
+    if(remoteHash === lastRemoteSnapshot && !dirtyLineKeys.size) return;
+    const before = JSON.stringify(normalizeState(state));
+    const merged = mergeStates(state, remote, dirtyLineKeys);
+    const after = JSON.stringify(normalizeState(merged));
+    if(before !== after){
+      state = merged;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      refreshAll();
+      if(remoteHash !== lastRemoteSnapshot){
+        toast('Datos actualizados desde otro equipo', 'ok');
+      }
+    }
+    lastRemoteSnapshot = remoteHash;
+    lastSyncAt = Date.now();
+  }catch(e){
+    console.error(e);
+  }finally{
+    isSyncing = false;
+    updateSyncStatus(false);
+  }
+}
+
+async function refreshStateFromRemoteSupabase(){
+  if(!SUPABASE_ENABLED || isSaving || isSyncing) return false;
+  const remote = await loadSupabaseState();
+  if(!remote) return false;
+  const merged = mergeStates(state, remote, dirtyLineKeys);
+  const changed = JSON.stringify(normalizeState(merged)) !== JSON.stringify(normalizeState(state));
+  if(changed){
+    state = merged;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  return changed;
+}
+
 function refreshStateFromRemote(){
   if(!SHAREPOINT_ENABLED || isSaving || isSyncing) return false;
   const remote = loadSharePointState();
@@ -902,7 +1171,7 @@ function refreshStateFromRemote(){
 function updateSyncStatus(syncing = false){
   const el = document.getElementById('sync-status');
   if(!el) return;
-  if(!SHAREPOINT_ENABLED){
+  if(!SHAREPOINT_ENABLED && !SUPABASE_ENABLED){
     el.hidden = true;
     return;
   }
@@ -937,8 +1206,30 @@ function saveState(){
       isSaving = false;
       updateSyncStatus(false);
     }
+  }else if(SUPABASE_ENABLED){
+    saveSupabaseStateAsync();
   }
   refreshAll();
+}
+
+async function saveSupabaseStateAsync(){
+  if(isSaving) return;
+  isSaving = true;
+  updateSyncStatus(true);
+  try{
+    await refreshStateFromRemoteSupabase();
+    state = normalizeState(state);
+    await saveSupabaseState(state);
+    dirtyLineKeys.clear();
+    lastSyncAt = Date.now();
+    lastRemoteSnapshot = JSON.stringify(normalizeState(state));
+  }catch(e){
+    console.error(e);
+    toast('Error al guardar en Supabase', 'bad');
+  }finally{
+    isSaving = false;
+    updateSyncStatus(false);
+  }
 }
 
 function formatBackupStamp(d = new Date()){
@@ -1462,19 +1753,41 @@ function syncModeLabel(){
   const mode = document.getElementById('mode-status');
   const sub = document.getElementById('brand-sub');
   if(mode){
-    mode.innerHTML = SHAREPOINT_ENABLED ? '<span class="dot"></span> Modo SharePoint activo' : '<span class="dot"></span> Modo local activo';
+    if(SHAREPOINT_ENABLED){
+      mode.innerHTML = '<span class="dot"></span> Modo SharePoint activo';
+    }else if(SUPABASE_ENABLED){
+      mode.innerHTML = '<span class="dot"></span> Modo Supabase activo';
+    }else{
+      mode.innerHTML = '<span class="dot"></span> Modo local activo';
+    }
   }
   if(sub){
-    sub.textContent = SHAREPOINT_ENABLED ? 'Sincronizacion en tiempo real con SharePoint' : 'Version local, sin SharePoint';
+    if(SHAREPOINT_ENABLED){
+      sub.textContent = 'Sincronizacion en tiempo real con SharePoint';
+    }else if(SUPABASE_ENABLED){
+      sub.textContent = 'Solicitud de material · datos en Supabase (nube)';
+    }else{
+      sub.textContent = 'Sin conexion a nube · configura config.js para Supabase';
+    }
   }
   updateSyncStatus(false);
 }
 
-function scheduleSharePointSync(){
+function scheduleRemoteSync(){
   if(syncTimer) clearInterval(syncTimer);
-  if(!SHAREPOINT_ENABLED) return;
-  const interval = document.hidden ? SYNC_INTERVAL_HIDDEN_MS : SYNC_INTERVAL_MS;
-  syncTimer = setInterval(syncSharePointState, interval);
+  if(SHAREPOINT_ENABLED){
+    const interval = document.hidden ? SYNC_INTERVAL_HIDDEN_MS : SYNC_INTERVAL_MS;
+    syncTimer = setInterval(syncSharePointState, interval);
+    return;
+  }
+  if(SUPABASE_ENABLED){
+    const interval = document.hidden ? SYNC_INTERVAL_HIDDEN_MS : SYNC_INTERVAL_MS;
+    syncTimer = setInterval(syncSupabaseState, interval);
+  }
+}
+
+function scheduleSharePointSync(){
+  scheduleRemoteSync();
 }
 let syncTimer = null;
 
@@ -1768,7 +2081,7 @@ function removeProdRow(id){
   renderProdRows();
 }
 
-function submitProd(){
+async function submitProd(){
   if(!requireAuth('prod')) return;
   const requester = document.getElementById('prod-requester').value.trim() || 'Produccion';
   const area = document.getElementById('prod-area').value;
@@ -1780,7 +2093,11 @@ function submitProd(){
     toast('Agrega al menos una linea', 'bad');
     return;
   }
-  if(SHAREPOINT_ENABLED) refreshStateFromRemote();
+  if(SHAREPOINT_ENABLED){
+    refreshStateFromRemote();
+  }else if(SUPABASE_ENABLED){
+    await syncSupabaseState();
+  }
   const requestCode = generateRequestCode();
   const created = [];
   for(const row of prodRows){
@@ -2359,26 +2676,61 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 document.getElementById('prod-area').addEventListener('change', syncProdRows);
 
 setInterval(updateClock, 1000);
-setInterval(() => { if(SHAREPOINT_ENABLED) updateSyncStatus(false); }, 1000);
+setInterval(() => { if(SHAREPOINT_ENABLED || SUPABASE_ENABLED) updateSyncStatus(false); }, 1000);
 setInterval(refreshAll, 300000);
-scheduleSharePointSync();
 document.addEventListener('visibilitychange', () => {
-  scheduleSharePointSync();
-  if(!document.hidden) syncSharePointState();
+  scheduleRemoteSync();
+  if(!document.hidden){
+    if(SHAREPOINT_ENABLED) syncSharePointState();
+    else if(SUPABASE_ENABLED) syncSupabaseState();
+  }
 });
-window.addEventListener('focus', () => syncSharePointState());
-syncModeLabel();
-updateClock();
-if(SHAREPOINT_ENABLED) syncSharePointState();
+window.addEventListener('focus', () => {
+  if(SHAREPOINT_ENABLED) syncSharePointState();
+  else if(SUPABASE_ENABLED) syncSupabaseState();
+});
 
-if(!state.catalog.length && !state.users.length){
-  state = defaultState();
-  saveState();
+async function initApp(){
+  syncModeLabel();
+  updateClock();
+
+  if(SUPABASE_ENABLED){
+    showLoading('Conectando con Supabase...');
+    try{
+      const remote = await loadSupabaseState();
+      if(remote){
+        state = mergeStates(loadLocalStateCache(), remote, new Set());
+      }else if(!state.catalog.length && !state.users.length){
+        state = defaultState();
+        await saveSupabaseState(state);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      lastRemoteSnapshot = JSON.stringify(normalizeState(state));
+      lastSyncAt = Date.now();
+      toast('DANA conectado a Supabase', 'ok');
+    }catch(e){
+      console.error(e);
+      toast('No se pudo conectar a Supabase. Revisa config.js y las tablas.', 'bad');
+    }finally{
+      hideLoading();
+    }
+  }else if(SHAREPOINT_ENABLED){
+    syncSharePointState();
+  }
+
+  if(!state.catalog.length && !state.users.length){
+    state = defaultState();
+    saveState();
+  }
+
+  scheduleRemoteSync();
+  refreshAll();
+  if(auth.prod && !prodRows.length) addProdRow();
+  initBackupSystem();
+  syncModeLabel();
 }
 
-refreshAll();
-if(auth.prod && !prodRows.length) addProdRow();
-initBackupSystem();
+initApp();
 
 </script>
 </body>

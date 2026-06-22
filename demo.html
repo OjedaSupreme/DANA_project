@@ -3,243 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DANA Project — Demo con datos</title>
+  <meta http-equiv="refresh" content="0; url=index.html" />
+  <title>DANA — Redirigiendo...</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
       color: #e2e8f0;
       min-height: 100vh;
-      padding: 2rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
     }
-
-    .container { max-width: 640px; margin: 0 auto; }
-
-    header { text-align: center; margin-bottom: 2rem; }
-
-    header h1 { font-size: 1.75rem; color: #f8fafc; margin-bottom: 0.5rem; }
-
-    header p { color: #94a3b8; font-size: 0.95rem; }
-
-    header a { color: #38bdf8; text-decoration: none; font-size: 0.85rem; }
-
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .card h2 {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #64748b;
-      margin-bottom: 1rem;
-    }
-
-    label {
-      display: block;
-      font-size: 0.85rem;
-      color: #94a3b8;
-      margin-bottom: 0.35rem;
-    }
-
-    input, textarea {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      color: #f8fafc;
-      padding: 0.65rem 0.85rem;
-      font-size: 0.95rem;
-      margin-bottom: 1rem;
-      font-family: inherit;
-    }
-
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: #38bdf8;
-    }
-
-    textarea { resize: vertical; min-height: 80px; }
-
-    button {
-      background: #38bdf8;
-      color: #0f172a;
-      border: none;
-      border-radius: 8px;
-      padding: 0.65rem 1.25rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-    }
-
-    button:hover { background: #7dd3fc; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .alert {
-      border-radius: 8px;
-      padding: 0.85rem 1rem;
-      font-size: 0.875rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .alert-error {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #fca5a5;
-    }
-
-    .alert-info {
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      color: #7dd3fc;
-    }
-
-    .registro {
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .registro:last-child { margin-bottom: 0; }
-
-    .registro h3 { font-size: 1rem; color: #f8fafc; margin-bottom: 0.35rem; }
-
-    .registro p { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
-
-    .registro time {
-      display: block;
-      font-size: 0.75rem;
-      color: #475569;
-      margin-top: 0.5rem;
-    }
-
-    .empty { text-align: center; color: #64748b; font-size: 0.9rem; padding: 1rem 0; }
+    a { color: #38bdf8; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>DANA Project — Demo con datos</h1>
-      <p>Registros guardados en Supabase (PostgreSQL en la nube)</p>
-      <a href="index.html">← Volver a la página simple</a>
-    </header>
-
-    <div id="alert" class="alert alert-info" hidden></div>
-
-    <div class="card">
-      <h2>Nuevo registro</h2>
-      <form id="form">
-        <label for="titulo">Título</label>
-        <input id="titulo" type="text" placeholder="Ej: Revisión de componente" required />
-
-        <label for="descripcion">Descripción</label>
-        <textarea id="descripcion" placeholder="Detalles opcionales..."></textarea>
-
-        <button type="submit" id="btn-guardar">Guardar en Supabase</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Registros guardados</h2>
-      <div id="lista">
-        <p class="empty">Cargando...</p>
-      </div>
-    </div>
+  <div>
+    <p>La app DANA se movio a la pagina principal.</p>
+    <p><a href="index.html">Ir a DANA Solicitud de material</a></p>
   </div>
-
-  <script src="config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const alertEl = document.getElementById("alert");
-    const form = document.getElementById("form");
-    const lista = document.getElementById("lista");
-    const btnGuardar = document.getElementById("btn-guardar");
-
-    function showAlert(msg, type = "info") {
-      alertEl.textContent = msg;
-      alertEl.className = `alert alert-${type}`;
-      alertEl.hidden = false;
-    }
-
-    if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY ||
-        window.SUPABASE_URL.includes("TU-PROYECTO")) {
-      showAlert(
-        "Falta config.js. Copia config.example.js → config.js y pon tus credenciales de Supabase.",
-        "error"
-      );
-      btnGuardar.disabled = true;
-      lista.innerHTML = '<p class="empty">Configura Supabase para ver los datos.</p>';
-    } else {
-      const supabase = window.supabase.createClient(
-        window.SUPABASE_URL,
-        window.SUPABASE_ANON_KEY
-      );
-
-      async function cargarRegistros() {
-        const { data, error } = await supabase
-          .from("registros")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          lista.innerHTML = `<p class="empty">Error: ${error.message}</p>`;
-          return;
-        }
-
-        if (!data.length) {
-          lista.innerHTML = '<p class="empty">No hay registros todavía. Crea el primero arriba.</p>';
-          return;
-        }
-
-        lista.innerHTML = data.map(r => `
-          <div class="registro">
-            <h3>${escapeHtml(r.titulo)}</h3>
-            ${r.descripcion ? `<p>${escapeHtml(r.descripcion)}</p>` : ""}
-            <time>${new Date(r.created_at).toLocaleString("es-ES")}</time>
-          </div>
-        `).join("");
-      }
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        btnGuardar.disabled = true;
-        btnGuardar.textContent = "Guardando...";
-
-        const { error } = await supabase.from("registros").insert({
-          titulo: document.getElementById("titulo").value.trim(),
-          descripcion: document.getElementById("descripcion").value.trim() || null,
-        });
-
-        btnGuardar.disabled = false;
-        btnGuardar.textContent = "Guardar en Supabase";
-
-        if (error) {
-          showAlert(`Error al guardar: ${error.message}`, "error");
-          return;
-        }
-
-        form.reset();
-        showAlert("Registro guardado correctamente.", "info");
-        cargarRegistros();
-      });
-
-      cargarRegistros();
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement("div");
-      div.textContent = text;
-      return div.innerHTML;
-    }
-  </script>
+  <script>location.replace('index.html');</script>
 </body>
 </html>
