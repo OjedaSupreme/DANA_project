@@ -687,6 +687,8 @@
 <script>
 const STORAGE_KEY = 'dana_material_local_v2';
 const AUTH_KEY = 'dana_material_auth_v2';
+const AUTH_ACTIVITY_KEY = 'dana_material_auth_activity_v1';
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const BACKUP_KEY = 'dana_material_backup_v1';
 const BACKUP_DB_NAME = 'dana_material_backup_db_v1';
 const BACKUP_DB_STORE = 'handles';
@@ -731,6 +733,8 @@ let editUserId = null;
 let backupConfig = loadBackupConfig();
 let backupFolderHandle = null;
 let backupTimer = null;
+let activeAppTab = 'prod';
+let lastActivityAt = Date.now();
 
 function defaultState(){
   return {
@@ -806,6 +810,14 @@ function loadState(){
 
 function loadAuth(){
   try{
+    const lastAct = Number(sessionStorage.getItem(AUTH_ACTIVITY_KEY) || 0);
+    if(lastAct && Date.now() - lastAct >= SESSION_TIMEOUT_MS){
+      sessionStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(AUTH_ACTIVITY_KEY);
+      return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
+    }
+    if(lastAct) lastActivityAt = lastAct;
+
     const raw = sessionStorage.getItem(AUTH_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
@@ -820,6 +832,25 @@ function loadAuth(){
     }
   }catch(e){}
   return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
+}
+
+function touchActivity(){
+  lastActivityAt = Date.now();
+  sessionStorage.setItem(AUTH_ACTIVITY_KEY, String(lastActivityAt));
+}
+
+function checkSessionTimeout(){
+  if(!(auth.prod || auth.alm || auth.adm)) return;
+  if(Date.now() - lastActivityAt >= SESSION_TIMEOUT_MS){
+    logoutAllModules('Sesion cerrada por inactividad (1 hora)');
+  }
+}
+
+function logoutAllModules(reason = ''){
+  const mods = ['prod', 'alm', 'adm'].filter(mod => auth[mod]);
+  if(!mods.length) return;
+  mods.forEach(mod => logoutModule(mod, { silent: true }));
+  if(reason) toast(reason, 'bad');
 }
 
 function loadBackupConfig(){
@@ -844,6 +875,7 @@ function saveBackupConfig(){
 
 function saveAuth(){
   sessionStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+  if(auth.prod || auth.alm || auth.adm) touchActivity();
   syncModuleVisibility();
 }
 
@@ -1727,7 +1759,19 @@ function hideLoading(){
   document.getElementById('loading').classList.remove('show');
 }
 
-function setActiveTab(tab){
+function setActiveTab(tab, options = {}){
+  const { skipLogout = false } = options;
+  if(!skipLogout && tab !== activeAppTab){
+    const leavingMod = activeAppTab;
+    if(auth[leavingMod]){
+      const labels = { prod: 'Produccion', alm: 'Almacen', adm: 'Administrador' };
+      logoutModule(leavingMod, {
+        silent: false,
+        reason: `Sesion de ${labels[leavingMod] || leavingMod} cerrada al cambiar de modulo`
+      });
+    }
+  }
+  activeAppTab = tab;
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.querySelectorAll('.screen').forEach(sec => sec.classList.toggle('active', sec.id === `screen-${tab}`));
 }
@@ -1876,13 +1920,21 @@ function loginModule(mod){
   renderWarehouse();
 }
 
-function logoutModule(mod){
+function logoutModule(mod, options = {}){
+  const { silent = false, reason = '' } = options;
+  const hadSession = !!auth[mod];
   if(mod === 'prod'){ auth.prod = false; auth.prodUser = ''; }
   if(mod === 'alm'){ auth.alm = false; auth.almUser = ''; }
   if(mod === 'adm'){ auth.adm = false; auth.admUser = ''; }
   saveAuth();
   clearLoginFields(mod);
-  toast('Sesion cerrada', 'ok');
+  renderProdHistory();
+  renderWarehouse();
+  renderUsers();
+  renderCatalog();
+  if(hadSession && !silent){
+    toast(reason || 'Sesion cerrada', 'ok');
+  }
 }
 
 function requireAuth(mod){
@@ -2673,6 +2725,14 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
 });
 
+['mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(eventName => {
+  document.addEventListener(eventName, () => {
+    if(auth.prod || auth.alm || auth.adm) touchActivity();
+  }, { passive: true });
+});
+
+setInterval(checkSessionTimeout, 60000);
+
 document.getElementById('prod-area').addEventListener('change', syncProdRows);
 
 setInterval(updateClock, 1000);
@@ -2681,11 +2741,13 @@ setInterval(refreshAll, 300000);
 document.addEventListener('visibilitychange', () => {
   scheduleRemoteSync();
   if(!document.hidden){
+    checkSessionTimeout();
     if(SHAREPOINT_ENABLED) syncSharePointState();
     else if(SUPABASE_ENABLED) syncSupabaseState();
   }
 });
 window.addEventListener('focus', () => {
+  checkSessionTimeout();
   if(SHAREPOINT_ENABLED) syncSharePointState();
   else if(SUPABASE_ENABLED) syncSupabaseState();
 });
@@ -2693,6 +2755,8 @@ window.addEventListener('focus', () => {
 async function initApp(){
   syncModeLabel();
   updateClock();
+  activeAppTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'prod';
+  if(auth.prod || auth.alm || auth.adm) touchActivity();
 
   if(SUPABASE_ENABLED){
     showLoading('Conectando con Supabase...');
