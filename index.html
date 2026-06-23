@@ -318,6 +318,10 @@
   .auth-card h3{margin:0 0 6px;font-size:18px}
   .auth-card p{margin:0 0 16px;color:var(--muted);line-height:1.45}
   .auth-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.45}
+  .backup-checks label{
+    display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer
+  }
+  .backup-checks input[type="checkbox"]{width:16px;height:16px;accent-color:var(--brand)}
   @media (max-width:1100px){
     .hero,.grid-2,.grid-2.prod-layout,.two-col{grid-template-columns:1fr}
     .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -677,24 +681,42 @@
             <div style="margin-top:16px" class="panel">
               <div class="panel-head" style="margin-bottom:12px">
                 <div>
-                  <h3 class="panel-title" style="font-size:16px">Respaldo automatico</h3>
-                  <p class="panel-sub">Configura la carpeta de destino para generar un archivo cada 10 minutos.</p>
+                  <h3 class="panel-title" style="font-size:16px">Respaldo y exportacion</h3>
+                  <p class="panel-sub">Elige formato, contenido y destino. El respaldo automatico usa estas mismas opciones cada 10 minutos.</p>
                 </div>
               </div>
-              <div class="field">
+              <div class="two-col">
+                <div class="field">
+                  <label>Formato de exportacion</label>
+                  <select id="backup-format" onchange="saveBackupExportOptions()">
+                    <option value="json">JSON</option>
+                    <option value="csv">Excel (CSV)</option>
+                    <option value="txt">Texto (TXT)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Contenido a exportar</label>
+                  <div class="backup-checks">
+                    <label><input type="checkbox" id="backup-inc-requests" checked onchange="saveBackupExportOptions()"> Solicitudes</label>
+                    <label><input type="checkbox" id="backup-inc-catalog" checked onchange="saveBackupExportOptions()"> Catalogo de materiales</label>
+                    <label><input type="checkbox" id="backup-inc-users" checked onchange="saveBackupExportOptions()"> Usuarios</label>
+                    <label><input type="checkbox" id="backup-inc-meta" checked onchange="saveBackupExportOptions()"> Secuencia de folios</label>
+                  </div>
+                </div>
+              </div>
+              <div class="field" style="margin-top:12px">
                 <label>Path de respaldo</label>
                 <input id="backup-path" type="text" placeholder="Ej. C:\\Respaldos\\DANA o una carpeta seleccionada">
               </div>
               <div class="stack">
                 <button class="btn btn-primary" onclick="chooseBackupFolder()">Elegir carpeta</button>
                 <button class="btn btn-secondary" onclick="saveBackupPath()">Guardar path</button>
-                <button class="btn btn-outline" onclick="runManualBackup()">Generar respaldo ahora</button>
+                <button class="btn btn-outline" onclick="runManualBackup()">Exportar / respaldar ahora</button>
                 <div class="spacer"></div>
                 <div class="pill warn" id="backup-status">Sin configurar</div>
               </div>
               <div class="footer-note" style="margin-top:10px">
-                Si el navegador soporta acceso a carpetas, el respaldo se escribe directamente en esa ruta.
-                Si no, se descargara como archivo para guardarlo manualmente.
+                Con carpeta configurada, el archivo se guarda ahi. Si no, se descarga con el formato y contenido seleccionados.
               </div>
             </div>
           </div>
@@ -897,12 +919,23 @@ function loadBackupConfig(){
       const parsed = JSON.parse(raw);
       if(parsed && typeof parsed === 'object'){
         return {
-          path: String(parsed.path || '').trim()
+          path: String(parsed.path || '').trim(),
+          format: ['json', 'csv', 'txt'].includes(parsed.format) ? parsed.format : 'json',
+          include: {
+            requests: parsed.include?.requests !== false,
+            catalog: parsed.include?.catalog !== false,
+            users: parsed.include?.users !== false,
+            meta: parsed.include?.meta !== false
+          }
         };
       }
     }
   }catch(e){}
-  return { path: '' };
+  return {
+    path: '',
+    format: 'json',
+    include: { requests: true, catalog: true, users: true, meta: true }
+  };
 }
 
 function saveBackupConfig(){
@@ -1310,14 +1343,171 @@ function formatBackupStamp(d = new Date()){
   return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
 }
 
-function exportJSONAs(filename){
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+function exportJSONAs(filename, content, mime = 'application/json'){
+  const blob = new Blob([content ?? JSON.stringify(state, null, 2)], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function getBackupExportOptions(){
+  const formatEl = document.getElementById('backup-format');
+  const include = {
+    requests: document.getElementById('backup-inc-requests')?.checked ?? backupConfig.include?.requests ?? true,
+    catalog: document.getElementById('backup-inc-catalog')?.checked ?? backupConfig.include?.catalog ?? true,
+    users: document.getElementById('backup-inc-users')?.checked ?? backupConfig.include?.users ?? true,
+    meta: document.getElementById('backup-inc-meta')?.checked ?? backupConfig.include?.meta ?? true
+  };
+  return {
+    format: formatEl?.value || backupConfig.format || 'json',
+    include
+  };
+}
+
+function saveBackupExportOptions(){
+  const opts = getBackupExportOptions();
+  backupConfig.format = opts.format;
+  backupConfig.include = { ...opts.include };
+  localStorage.setItem(BACKUP_KEY, JSON.stringify(backupConfig));
+}
+
+function validateExportInclude(include){
+  return !!(include?.requests || include?.catalog || include?.users || include?.meta);
+}
+
+function buildExportPayload(include){
+  const payload = { exportedAt: fmtDT() };
+  if(include.meta) payload.requestSeq = state.requestSeq;
+  if(include.users) payload.users = [...state.users];
+  if(include.catalog) payload.catalog = [...state.catalog];
+  if(include.requests) payload.requests = [...state.requests];
+  return payload;
+}
+
+function serializeExportJson(payload){
+  return JSON.stringify(payload, null, 2);
+}
+
+function serializeExportTxt(payload, include){
+  const lines = [
+    'DANA - Solicitud de material',
+    `Generado: ${payload.exportedAt}`,
+    ''
+  ];
+  if(include.meta){
+    lines.push('=== SECUENCIA DE FOLIOS ===');
+    lines.push(`Proximo folio: ${payload.requestSeq ?? state.requestSeq ?? 0}`);
+    lines.push('');
+  }
+  if(include.users && payload.users?.length){
+    lines.push('=== USUARIOS ===');
+    payload.users.forEach(u => {
+      lines.push(`${u.id} | ${u.name} | ${u.user} | ${roleLabel(u.role)}`);
+    });
+    lines.push('');
+  }
+  if(include.catalog && payload.catalog?.length){
+    lines.push('=== CATALOGO ===');
+    payload.catalog.forEach(c => {
+      lines.push(`${c.area} | ${c.part} | ${c.code} | ${c.desc} | ${c.unit || 'pza'}`);
+    });
+    lines.push('');
+  }
+  if(include.requests && payload.requests?.length){
+    lines.push('=== SOLICITUDES ===');
+    payload.requests.forEach(r => {
+      const unit = requestUnit(r);
+      lines.push(
+        `Folio ${r.requestCode} | ${r.createdAt} | ${r.area} | ${r.part} | ${r.code} | ${r.desc} | ${unit} | Sol: ${r.qtyRequested} | Sur: ${r.qtySupplied || 0} | ${r.status} | ${r.requester}`
+      );
+    });
+  }
+  if(lines.length <= 3){
+    lines.push('Sin datos para exportar con la seleccion actual.');
+  }
+  return lines.join('\r\n');
+}
+
+function serializeExportCsv(payload, include){
+  const blocks = [];
+  if(include.meta){
+    blocks.push('# SECUENCIA DE FOLIOS');
+    blocks.push(['Campo','Valor'].map(csvCell).join(','));
+    blocks.push([csvCell('requestSeq'), payload.requestSeq ?? state.requestSeq ?? 0].join(','));
+    blocks.push('');
+  }
+  if(include.users && payload.users?.length){
+    blocks.push('# USUARIOS');
+    blocks.push(['No. empleado','Nombre','Usuario','Rol'].map(csvCell).join(','));
+    payload.users.forEach(u => {
+      blocks.push([u.id, u.name, u.user, roleLabel(u.role)].map(csvCell).join(','));
+    });
+    blocks.push('');
+  }
+  if(include.catalog && payload.catalog?.length){
+    blocks.push('# CATALOGO');
+    blocks.push(['Area','No. Parte','Codigo','Descripcion','Unidad'].map(csvCell).join(','));
+    payload.catalog.forEach(c => {
+      blocks.push([c.area, c.part, c.code, c.desc, c.unit || 'pza'].map(csvCell).join(','));
+    });
+    blocks.push('');
+  }
+  if(include.requests && payload.requests?.length){
+    blocks.push('# SOLICITUDES');
+    blocks.push([
+      'Solicitud','Fecha','Area','No. Parte','Codigo','Descripcion','Unidad',
+      'Solicitado','Surtido','Estatus','Solicitado por','Surtido por','Atendida en','Tiempo (min)'
+    ].map(csvCell).join(','));
+    payload.requests.forEach(r => {
+      const unit = requestUnit(r);
+      blocks.push([
+        r.requestCode || '',
+        r.createdAt,
+        r.area,
+        r.part,
+        r.code,
+        r.desc,
+        unit,
+        r.qtyRequested,
+        r.qtySupplied || 0,
+        r.status,
+        r.requester,
+        r.suppliedBy || '',
+        r.suppliedAt || '',
+        calcAttentionMinutes(r.createdAt, r.suppliedAt)
+      ].map(csvCell).join(','));
+    });
+  }
+  if(!blocks.length) return csvCell('Sin datos');
+  return '\ufeff' + blocks.join('\r\n');
+}
+
+function buildExportFile(options){
+  const { format, include } = options;
+  const payload = buildExportPayload(include);
+  const ext = { json: 'json', csv: 'csv', txt: 'txt' }[format] || 'json';
+  if(format === 'csv'){
+    return {
+      filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+      content: serializeExportCsv(payload, include),
+      mime: 'text/csv;charset=utf-8'
+    };
+  }
+  if(format === 'txt'){
+    return {
+      filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+      content: serializeExportTxt(payload, include),
+      mime: 'text/plain;charset=utf-8'
+    };
+  }
+  return {
+    filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+    content: serializeExportJson(payload),
+    mime: 'application/json'
+  };
 }
 
 function updateBackupStatus(text, kind = 'warn'){
@@ -1330,6 +1520,16 @@ function updateBackupStatus(text, kind = 'warn'){
 function refreshBackupUI(){
   const input = document.getElementById('backup-path');
   if(input) input.value = backupConfig.path || (backupFolderHandle?.name || '');
+  const formatEl = document.getElementById('backup-format');
+  if(formatEl) formatEl.value = backupConfig.format || 'json';
+  const setChecked = (id, value) => {
+    const el = document.getElementById(id);
+    if(el) el.checked = !!value;
+  };
+  setChecked('backup-inc-requests', backupConfig.include?.requests !== false);
+  setChecked('backup-inc-catalog', backupConfig.include?.catalog !== false);
+  setChecked('backup-inc-users', backupConfig.include?.users !== false);
+  setChecked('backup-inc-meta', backupConfig.include?.meta !== false);
   if(backupFolderHandle){
     updateBackupStatus(`Carpeta lista: ${backupFolderHandle.name}`, 'ok');
   }else if(backupConfig.path){
@@ -1465,8 +1665,14 @@ function runManualBackup(){
 }
 
 async function runAutoBackup(manual = false){
-  const filename = `dana-respaldo-${formatBackupStamp()}.json`;
-  const payload = JSON.stringify(state, null, 2);
+  const options = getBackupExportOptions();
+  if(!validateExportInclude(options.include)){
+    if(manual) toast('Selecciona al menos un contenido para exportar', 'bad');
+    return false;
+  }
+  saveBackupExportOptions();
+  const file = buildExportFile(options);
+  const { filename, content, mime } = file;
 
   if(backupFolderHandle){
     try{
@@ -1477,10 +1683,10 @@ async function runAutoBackup(manual = false){
       }
       const fileHandle = await backupFolderHandle.getFileHandle(filename, { create: true });
       const writable = await fileHandle.createWritable();
-      await writable.write(payload);
+      await writable.write(content);
       await writable.close();
       updateBackupStatus(`Respaldo guardado en ${backupFolderHandle.name}`, 'ok');
-      if(manual) toast('Respaldo generado correctamente', 'ok');
+      if(manual) toast(`Exportacion ${options.format.toUpperCase()} generada`, 'ok');
       return true;
     }catch(err){
       updateBackupStatus('Error al escribir el respaldo', 'bad');
@@ -1490,9 +1696,9 @@ async function runAutoBackup(manual = false){
   }
 
   if(manual){
-    exportJSONAs(filename);
+    exportJSONAs(filename, content, mime);
     updateBackupStatus('Descarga generada para respaldo manual', 'warn');
-    toast('Se descargó el respaldo', 'ok');
+    toast(`Exportacion ${options.format.toUpperCase()} descargada`, 'ok');
     return true;
   }
 
@@ -2787,7 +2993,11 @@ function wipeAll(){
 }
 
 function exportJSON(){
-  exportJSONAs('dana-local-backup.json');
+  if(!requireAuth('adm')) return;
+  const options = { format: 'json', include: { requests: true, catalog: true, users: true, meta: true } };
+  const file = buildExportFile(options);
+  exportJSONAs(file.filename, file.content, file.mime);
+  toast('JSON exportado', 'ok');
 }
 
 function importJSON(event){
