@@ -161,6 +161,22 @@
   .screen.active{display:block;animation:fadeIn .18s ease}
   @keyframes fadeIn{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   .grid-2{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+  .grid-2.prod-layout{
+    grid-template-columns:minmax(0,1fr) minmax(240px,290px);
+    gap:16px;
+    align-items:start;
+  }
+  .prod-layout .table-card{padding:14px 12px}
+  .prod-layout .table-card .panel-head{margin-bottom:10px;padding-bottom:10px}
+  .prod-layout .table-card .panel-title{font-size:15px}
+  .prod-layout .table-card .panel-sub{font-size:11px;line-height:1.35}
+  .prod-layout #prod-history{
+    display:flex;flex-direction:column;gap:8px;max-height:560px;overflow:auto;padding-right:4px
+  }
+  .prod-layout #prod-history .list-item{padding:10px 11px;border-radius:12px}
+  .prod-layout #prod-history .list-item-title{font-size:13px}
+  .prod-layout #prod-history .list-item-sub{font-size:11px;line-height:1.35}
+  .prod-layout #prod-history .pill{font-size:10px;padding:5px 8px}
   .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .panel,.table-card,.form-card,.list-card{padding:18px}
   .panel-head{
@@ -237,8 +253,19 @@
   .req-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
   .req-title{font-weight:900}
   .req-grid{
-    display:grid;grid-template-columns:1fr 1fr 1fr 110px 40px;gap:10px;align-items:end
+    display:grid;
+    grid-template-columns:minmax(108px,.95fr) minmax(118px,1.05fr) minmax(140px,1.45fr) minmax(76px,.62fr) minmax(104px,.78fr);
+    gap:12px;
+    align-items:end;
   }
+  .field-unit .unit-display{
+    min-height:42px;
+    display:flex;align-items:center;justify-content:center;
+    padding:10px 12px;border:1px solid var(--line);border-radius:12px;
+    background:#f8fbff;font-weight:800;font-size:14px;letter-spacing:.02em;
+    color:var(--text);
+  }
+  .field-unit .unit-display.empty{color:var(--muted);font-weight:600}
   .muted{color:var(--muted)}
   .small{font-size:12px}
   .empty{
@@ -293,9 +320,10 @@
   .auth-card p{margin:0 0 16px;color:var(--muted);line-height:1.45}
   .auth-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.45}
   @media (max-width:1100px){
-    .hero,.grid-2,.two-col{grid-template-columns:1fr}
+    .hero,.grid-2,.grid-2.prod-layout,.two-col{grid-template-columns:1fr}
     .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .req-grid{grid-template-columns:1fr 1fr}
+    .req-grid{grid-template-columns:1fr 1fr minmax(76px,.55fr) minmax(104px,.7fr)}
+    .req-grid .field:nth-child(3){grid-column:1 / -1}
   }
   @media (max-width:700px){
     .container{padding:14px}
@@ -391,7 +419,7 @@
         <div class="auth-note">Demo: <strong>prod</strong> / <strong>prod123</strong></div>
       </div>
       <div class="module-body hidden" id="prod-body">
-        <div class="grid-2">
+        <div class="grid-2 prod-layout">
           <div class="panel">
             <div class="panel-head">
               <div>
@@ -500,13 +528,14 @@
                   <th>No. Parte</th>
                   <th>Codigo</th>
                   <th>Descripcion</th>
+                  <th>Unidad</th>
                   <th>Solicitado</th>
                   <th>Surtido</th>
                   <th>Estatus</th>
                   <th>Solicitado por</th>
                   <th>Surtido por</th>
                   <th>Atendida en</th>
-                  <th>Tiempo</th>
+                  <th>Tiempo (min)</th>
                 </tr>
               </thead>
               <tbody id="alm-table"></tbody>
@@ -567,6 +596,10 @@
               <div class="field">
                 <label>Descripcion</label>
                 <input id="cat-desc" type="text" placeholder="Descripcion">
+              </div>
+              <div class="field">
+                <label>Unidad de medida</label>
+                <select id="cat-unit"></select>
               </div>
             </div>
             <div class="stack">
@@ -689,6 +722,7 @@ const STORAGE_KEY = 'dana_material_local_v2';
 const AUTH_KEY = 'dana_material_auth_v2';
 const AUTH_ACTIVITY_KEY = 'dana_material_auth_activity_v1';
 const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+const CATALOG_UNITS = ['pza', 'kg', 'g', 'L', 'm', 'm²', 'rollo', 'caja', 'lt', 'gal'];
 const BACKUP_KEY = 'dana_material_backup_v1';
 const BACKUP_DB_NAME = 'dana_material_backup_db_v1';
 const BACKUP_DB_STORE = 'handles';
@@ -745,9 +779,9 @@ function defaultState(){
       { id: '9000', name: 'Administrador', user: 'admin', pass: 'admin123', role: 'admin' }
     ],
     catalog: [
-      { id: 1, area: 'Linea A', part: 'PA-100', code: 'MAT-001', desc: 'Material de prueba A' },
-      { id: 2, area: 'Linea A', part: 'PA-100', code: 'MAT-002', desc: 'Material de prueba B' },
-      { id: 3, area: 'Linea B', part: 'PB-200', code: 'MAT-010', desc: 'Material de prueba C' }
+      { id: 1, area: 'Linea A', part: 'PA-100', code: 'MAT-001', desc: 'Material de prueba A', unit: 'pza' },
+      { id: 2, area: 'Linea A', part: 'PA-100', code: 'MAT-002', desc: 'Material de prueba B', unit: 'kg' },
+      { id: 3, area: 'Linea B', part: 'PB-200', code: 'MAT-010', desc: 'Material de prueba C', unit: 'm' }
     ],
     requests: []
   };
@@ -779,6 +813,10 @@ function normalizeState(input){
     const maxCode = Math.max(0, ...normalized.requests.map(r => Number(r.requestCode) || 0));
     normalized.requestSeq = Math.max(normalized.requestSeq, maxCode);
   }
+  normalized.catalog = normalized.catalog.map(c => ({
+    ...c,
+    unit: String(c.unit || 'pza').trim() || 'pza'
+  }));
   return normalized;
 }
 
@@ -1001,7 +1039,7 @@ async function loadSupabaseState(){
   ] = await Promise.all([
     supabaseClient.from('app_meta').select('request_seq').eq('id', 1).maybeSingle(),
     supabaseClient.from('usuarios').select('id,nombre,usuario,contrasena,rol,activo').eq('activo', true),
-    supabaseClient.from('catalogo_bom').select('id,area,no_parte,material_codigo,descripcion,activo').eq('activo', true),
+    supabaseClient.from('catalogo_bom').select('id,area,no_parte,material_codigo,descripcion,unidad_medida,activo').eq('activo', true),
     supabaseClient.from('solicitudes').select('*'),
     supabaseClient.from('solicitud_detalles').select('*')
   ]);
@@ -1028,6 +1066,7 @@ async function loadSupabaseState(){
       desc: d.descripcion || '',
       qtyRequested: Number(d.cantidad_solicitada) || 1,
       qtySupplied: Number(d.cantidad_surtida) || 0,
+      unit: d.unidad_medida || '',
       status: d.estatus_linea || header.estatus || 'pendiente',
       suppliedBy: d.surtido_por || header.surtido_por || '',
       suppliedAt: d.fecha_atendida || header.fecha_atendida || ''
@@ -1039,7 +1078,8 @@ async function loadSupabaseState(){
     area: item.area || '',
     part: item.no_parte || '',
     code: item.material_codigo || '',
-    desc: item.descripcion || ''
+    desc: item.descripcion || '',
+    unit: item.unidad_medida || 'pza'
   })).filter(x => x.area || x.part || x.code || x.desc);
 
   const normalizedUsers = (usuarios || []).map(item => ({
@@ -1094,6 +1134,7 @@ async function saveSupabaseState(nextState){
         no_parte: String(item.part || ''),
         material_codigo: String(item.code || ''),
         descripcion: String(item.desc || ''),
+        unidad_medida: String(item.unit || 'pza'),
         activo: true
       };
       if(Number(item.id)) payload.id = Number(item.id);
@@ -1134,6 +1175,7 @@ async function saveSupabaseState(nextState){
       descripcion: String(item.desc || ''),
       cantidad_solicitada: Number(item.qtyRequested || 1),
       cantidad_surtida: Number(item.qtySupplied || 0),
+      unidad_medida: String(item.unit || requestUnit(item)),
       estatus_linea: String(item.status || 'pendiente'),
       surtido_por: String(item.suppliedBy || ''),
       fecha_atendida: String(item.suppliedAt || '')
@@ -1505,8 +1547,8 @@ function spRequest(method, path, body = null, extraHeaders = {}){
 function loadSharePointState(){
   if(!SHAREPOINT_ENABLED) return null;
   const solicitudes = spGetItems(SHAREPOINT_LISTS.solicitudes, 'Id,Title,Folio,SolicitadoPor,SolicitadoPorUsuario,Area,Estatus,FechaCreacion,FechaAtendida,SurtidoPor,TiempoAtencionMin,Observaciones');
-  const detalles = spGetItems(SHAREPOINT_LISTS.detalles, 'Id,Title,FolioSolicitud,NoParte,MaterialCodigo,Descripcion,CantidadSolicitada,CantidadSurtida,EstatusLinea,SurtidoPor,FechaAtendida');
-  const catalogo = spGetItems(SHAREPOINT_LISTS.catalogo, 'Id,Title,Area,NoParte,MaterialCodigo,Descripcion,Activo');
+  const detalles = spGetItems(SHAREPOINT_LISTS.detalles, 'Id,Title,FolioSolicitud,NoParte,MaterialCodigo,Descripcion,UnidadMedida,CantidadSolicitada,CantidadSurtida,EstatusLinea,SurtidoPor,FechaAtendida');
+  const catalogo = spGetItems(SHAREPOINT_LISTS.catalogo, 'Id,Title,Area,NoParte,MaterialCodigo,Descripcion,UnidadMedida,Activo');
   const usuarios = spGetItems(SHAREPOINT_LISTS.usuarios, 'Id,Title,Nombre,NoEmpleado,Usuario,Contrasena,Rol,Activo');
 
   if((solicitudes.length + detalles.length + catalogo.length + usuarios.length) === 0) return null;
@@ -1527,6 +1569,7 @@ function loadSharePointState(){
       desc: d.Descripcion || '',
       qtyRequested: Number(d.CantidadSolicitada) || 1,
       qtySupplied: Number(d.CantidadSurtida) || 0,
+      unit: d.UnidadMedida || '',
       status: d.EstatusLinea || header.Estatus || 'pendiente',
       suppliedBy: d.SurtidoPor || header.SurtidoPor || '',
       suppliedAt: d.FechaAtendida || header.FechaAtendida || ''
@@ -1538,7 +1581,8 @@ function loadSharePointState(){
     area: item.Area || '',
     part: item.NoParte || '',
     code: item.MaterialCodigo || '',
-    desc: item.Descripcion || ''
+    desc: item.Descripcion || '',
+    unit: item.UnidadMedida || 'pza'
   })).filter(x => x.area || x.part || x.code || x.desc);
 
   const normalizedUsers = (usuarios || []).map(item => ({
@@ -1588,9 +1632,10 @@ function saveSharePointState(nextState){
       NoParte: String(item.part || ''),
       MaterialCodigo: String(item.code || ''),
       Descripcion: String(item.desc || ''),
+      UnidadMedida: String(item.unit || 'pza'),
       Activo: true
     }),
-    ['Id','Title','Area','NoParte','MaterialCodigo','Descripcion','Activo']
+    ['Id','Title','Area','NoParte','MaterialCodigo','Descripcion','UnidadMedida','Activo']
   );
 
   const grouped = groupRequestsByCode(normalized.requests);
@@ -1623,13 +1668,14 @@ function saveSharePointState(nextState){
       NoParte: String(item.part || ''),
       MaterialCodigo: String(item.code || ''),
       Descripcion: String(item.desc || ''),
+      UnidadMedida: String(item.unit || requestUnit(item)),
       CantidadSolicitada: Number(item.qtyRequested || 1),
       CantidadSurtida: Number(item.qtySupplied || 0),
       EstatusLinea: String(item.status || 'pendiente'),
       SurtidoPor: String(item.suppliedBy || ''),
       FechaAtendida: String(item.suppliedAt || '')
     }),
-    ['Id','Title','FolioSolicitud','NoParte','MaterialCodigo','Descripcion','CantidadSolicitada','CantidadSurtida','EstatusLinea','SurtidoPor','FechaAtendida']
+    ['Id','Title','FolioSolicitud','NoParte','MaterialCodigo','Descripcion','UnidadMedida','CantidadSolicitada','CantidadSurtida','EstatusLinea','SurtidoPor','FechaAtendida']
   );
   return normalized;
 }
@@ -1954,6 +2000,27 @@ function getMaterials(part){
   return state.catalog.filter(x => x.part === part);
 }
 
+function requestUnit(r){
+  if(r?.unit) return String(r.unit).trim() || 'pza';
+  const cat = state.catalog.find(c =>
+    String(c.code || '').toLowerCase() === String(r?.code || '').toLowerCase() &&
+    String(c.part || '').toLowerCase() === String(r?.part || '').toLowerCase()
+  );
+  return cat?.unit || 'pza';
+}
+
+function formatQty(qty, unit){
+  return `${qty} ${unit || 'pza'}`;
+}
+
+function initCatalogUnitSelect(selected = 'pza'){
+  const sel = document.getElementById('cat-unit');
+  if(!sel) return;
+  const value = String(selected || 'pza').trim() || 'pza';
+  const options = [...new Set([...CATALOG_UNITS, value])];
+  sel.innerHTML = options.map(u => `<option value="${escapeHtml(u)}" ${u === value ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
+}
+
 function generateRequestCode(extra = []){
   if(SHAREPOINT_ENABLED){
     refreshStateFromRemote();
@@ -2072,12 +2139,14 @@ function renderProdRows(){
   host.innerHTML = prodRows.map(row => {
     const parts = getParts(row.area);
     const mats = getMaterials(row.part);
+    const selectedMat = mats.find(m => String(m.id) === String(row.code)) || {};
+    const unit = selectedMat.unit || 'pza';
     return `
       <div class="req-row" data-row="${row.id}">
         <div class="req-head">
           <div>
             <div class="req-title">Linea de material</div>
-            <div class="muted small">Area: ${escapeHtml(row.area || '')} · NP: ${escapeHtml(row.part || 'Sin seleccionar')}</div>
+            <div class="muted small">Area: ${escapeHtml(row.area || '')} · NP: ${escapeHtml(row.part || 'Sin seleccionar')}${selectedMat.code ? ` · Unidad: ${escapeHtml(unit)}` : ''}</div>
           </div>
           <div class="row-actions">
             <button class="btn btn-outline btn-sm" onclick="duplicateProdRow(${row.id})">+ Material</button>
@@ -2095,18 +2164,21 @@ function renderProdRows(){
             <label>Material</label>
             <select onchange="updateProdRow(${row.id}, 'code', this.value)">
               <option value="">Seleccione</option>
-              ${mats.map(m => `<option value="${m.id}" ${String(m.id) === String(row.code) ? 'selected' : ''}>${escapeHtml(m.code)}</option>`).join('')}
+              ${mats.map(m => `<option value="${m.id}" ${String(m.id) === String(row.code) ? 'selected' : ''}>${escapeHtml(m.code)} · ${escapeHtml(m.unit || 'pza')}</option>`).join('')}
             </select>
           </div>
           <div class="field">
             <label>Descripcion</label>
-            <input type="text" readonly value="${escapeHtml((mats.find(m => String(m.id) === String(row.code)) || {}).desc || '')}">
+            <input type="text" readonly value="${escapeHtml(selectedMat.desc || '')}">
+          </div>
+          <div class="field field-unit">
+            <label>Unidad</label>
+            <div class="unit-display ${selectedMat.code ? '' : 'empty'}">${escapeHtml(selectedMat.code ? unit : '—')}</div>
           </div>
           <div class="field">
             <label>Cantidad</label>
-            <input type="number" min="1" value="${row.qty}" onchange="updateProdRow(${row.id}, 'qty', this.value)">
+            <input type="number" min="1" value="${row.qty}" placeholder="${escapeHtml(unit)}" onchange="updateProdRow(${row.id}, 'qty', this.value)">
           </div>
-          <div></div>
         </div>
       </div>
     `;
@@ -2167,6 +2239,7 @@ async function submitProd(){
       part: row.part,
       code: mat.code,
       desc: mat.desc,
+      unit: mat.unit || 'pza',
       qtyRequested: Math.max(1, parseInt(row.qty, 10) || 1),
       qtySupplied: 0,
       status: 'pendiente',
@@ -2194,25 +2267,28 @@ function renderProdHistory(){
     host.innerHTML = `<div class="empty">Todavia no hay solicitudes.</div>`;
     return;
   }
-  host.innerHTML = items.map(r => `
+  host.innerHTML = items.map(r => {
+    const unit = requestUnit(r);
+    return `
     <div class="list-item">
       <div class="list-item-top">
         <div>
           <div class="list-item-title">Solicitud ${escapeHtml(r.requestCode || '0')} <span class="badge ${r.status}">${r.status}</span></div>
-          <div class="list-item-sub">${escapeHtml(r.area)} · ${escapeHtml(r.part)} · ${escapeHtml(r.desc)}</div>
+          <div class="list-item-sub">${escapeHtml(r.area)} · ${escapeHtml(r.part)} · ${escapeHtml(r.desc)} · ${escapeHtml(unit)}</div>
         </div>
         <div class="pill">${escapeHtml(r.createdAt)}</div>
       </div>
       <div class="list-item-sub" style="margin-top:8px">
-        Solicitado por: <strong>${escapeHtml(r.requester)}</strong> · Cantidad: <strong>${r.qtyRequested}</strong> · Surtido: <strong>${r.qtySupplied || 0}</strong>
+        Solicitado por: <strong>${escapeHtml(r.requester)}</strong> · Cantidad: <strong>${formatQty(r.qtyRequested, unit)}</strong> · Surtido: <strong>${formatQty(r.qtySupplied || 0, unit)}</strong>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderWarehouse(){
   if(!auth.alm){
-    document.getElementById('alm-table').innerHTML = `<tr><td colspan="13"><div class="empty" style="margin:12px">Inicia sesion de Almacen para ver y modificar solicitudes.</div></td></tr>`;
+    document.getElementById('alm-table').innerHTML = `<tr><td colspan="14"><div class="empty" style="margin:12px">Inicia sesion de Almacen para ver y modificar solicitudes.</div></td></tr>`;
     return;
   }
   const search = document.getElementById('alm-search').value.trim().toLowerCase();
@@ -2221,7 +2297,7 @@ function renderWarehouse(){
   let rows = [...state.requests];
   if(filter) rows = rows.filter(r => r.status === filter);
   if(search){
-    rows = rows.filter(r => [r.area,r.part,r.code,r.desc,r.requester,r.suppliedBy,r.requestCode,String(r.id)].some(v => String(v || '').toLowerCase().includes(search)));
+    rows = rows.filter(r => [r.area,r.part,r.code,r.desc,r.unit,r.requester,r.suppliedBy,r.requestCode,String(r.id)].some(v => String(v || '').toLowerCase().includes(search)));
   }
   const total = state.requests.length;
   const pending = state.requests.filter(r => r.status === 'pendiente').length;
@@ -2232,10 +2308,12 @@ function renderWarehouse(){
   document.getElementById('sum-surtido').textContent = surtido;
   document.getElementById('sum-corto').textContent = corto;
   if(!rows.length){
-    tbody.innerHTML = `<tr><td colspan="13"><div class="empty" style="margin:12px">Sin resultados.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14"><div class="empty" style="margin:12px">Sin resultados.</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map(r => `
+  tbody.innerHTML = rows.map(r => {
+    const unit = requestUnit(r);
+    return `
     <tr>
       <td><strong>${escapeHtml(r.requestCode || '0')}</strong></td>
       <td>${escapeHtml(r.createdAt)}</td>
@@ -2243,10 +2321,12 @@ function renderWarehouse(){
       <td>${escapeHtml(r.part)}</td>
       <td>${escapeHtml(r.code)}</td>
       <td>${escapeHtml(r.desc)}</td>
-      <td><strong>${r.qtyRequested}</strong></td>
+      <td><span class="pill">${escapeHtml(unit)}</span></td>
+      <td><strong>${formatQty(r.qtyRequested, unit)}</strong></td>
       <td>
         <input type="number" min="0" value="${r.qtySupplied || 0}" style="width:84px;padding:8px;border:1px solid var(--line);border-radius:10px"
           onchange="updateRequest(${r.id}, 'qtySupplied', this.value)">
+        <div class="muted small">${escapeHtml(unit)}</div>
       </td>
       <td>
         <select class="status" onchange="updateRequest(${r.id}, 'status', this.value)" style="padding:8px;border:1px solid var(--line);border-radius:10px">
@@ -2264,7 +2344,8 @@ function renderWarehouse(){
       <td>${escapeHtml(r.suppliedAt || '—')}</td>
       <td>${escapeHtml(calcAttentionMinutes(r.createdAt, r.suppliedAt))}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function exportWarehouseExcel(){
@@ -2274,30 +2355,34 @@ function exportWarehouseExcel(){
   let rows = [...state.requests];
   if(filter) rows = rows.filter(r => r.status === filter);
   if(search){
-    rows = rows.filter(r => [r.area,r.part,r.code,r.desc,r.requester,r.suppliedBy,r.requestCode,String(r.id)].some(v => String(v || '').toLowerCase().includes(search)));
+    rows = rows.filter(r => [r.area,r.part,r.code,r.desc,r.unit,r.requester,r.suppliedBy,r.requestCode,String(r.id)].some(v => String(v || '').toLowerCase().includes(search)));
   }
   if(!rows.length){
     toast('No hay datos para exportar', 'bad');
     return;
   }
-  const headers = ['Solicitud','Fecha','Area','No. Parte','Codigo','Descripcion','Solicitado','Surtido','Estatus','Solicitado por','Surtido por','Atendida en','Tiempo'];
+  const headers = ['Solicitud','Fecha','Area','No. Parte','Codigo','Descripcion','Unidad','Solicitado','Surtido','Estatus','Solicitado por','Surtido por','Atendida en','Tiempo (min)'];
   const csv = [
     headers.join(','),
-    ...rows.map(r => [
+    ...rows.map(r => {
+      const unit = requestUnit(r);
+      return [
       csvCell(r.requestCode || ''),
       csvCell(r.createdAt),
       csvCell(r.area),
       csvCell(r.part),
       csvCell(r.code),
       csvCell(r.desc),
-      r.qtyRequested,
-      r.qtySupplied || 0,
+      csvCell(unit),
+      csvCell(formatQty(r.qtyRequested, unit)),
+      csvCell(formatQty(r.qtySupplied || 0, unit)),
       csvCell(r.status),
       csvCell(r.requester),
       csvCell(r.suppliedBy || auth.almUser || ''),
       csvCell(r.suppliedAt || ''),
       csvCell(calcAttentionMinutes(r.createdAt, r.suppliedAt))
-    ].join(','))
+    ].join(',');
+    })
   ].join('\r\n');
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -2328,7 +2413,7 @@ function calcAttentionMinutes(createdAt, suppliedAt){
   const b = parse(suppliedAt);
   if(!a || !b) return '—';
   const mins = Math.max(0, Math.round((b - a) / 60000));
-  return `${mins} min`;
+  return String(mins);
 }
 
 function calcAttentionMinutesValue(createdAt, suppliedAt){
@@ -2347,6 +2432,22 @@ function calcAttentionMinutesValue(createdAt, suppliedAt){
   return Math.max(0, Math.round((b - a) / 60000));
 }
 
+function applySupplyStatus(r){
+  const requested = Math.max(0, parseInt(r.qtyRequested, 10) || 0);
+  const supplied = Math.max(0, parseInt(r.qtySupplied, 10) || 0);
+
+  if(supplied === 0){
+    r.status = 'pendiente';
+    r.suppliedAt = '';
+    r.suppliedBy = '';
+    return;
+  }
+
+  r.status = supplied >= requested ? 'surtido' : 'corto';
+  if(!r.suppliedAt) r.suppliedAt = fmtDT();
+  if(!r.suppliedBy) r.suppliedBy = auth.almUser || '';
+}
+
 function updateRequest(id, key, value){
   if(!requireAuth('alm')) return;
   const r = state.requests.find(x => String(x.id) === String(id));
@@ -2354,6 +2455,7 @@ function updateRequest(id, key, value){
   markRequestDirty(r);
   if(key === 'qtySupplied'){
     r.qtySupplied = Math.max(0, parseInt(value || '0', 10) || 0);
+    applySupplyStatus(r);
   }else if(key === 'status'){
     r.status = value;
     if(value === 'pendiente'){
@@ -2419,7 +2521,7 @@ function renderCatalog(){
           <div>
             <div class="list-item-title">${escapeHtml(area)} <span class="pill">${items.length} partes</span></div>
             <div class="list-item-sub">
-              ${items.map(m => `${escapeHtml(m.part)} · ${escapeHtml(m.code)} · ${escapeHtml(m.desc)}`).join('<br>')}
+              ${items.map(m => `${escapeHtml(m.part)} · ${escapeHtml(m.code)} · ${escapeHtml(m.desc)} · <strong>${escapeHtml(m.unit || 'pza')}</strong>`).join('<br>')}
             </div>
           </div>
         </div>
@@ -2443,15 +2545,16 @@ function saveCatalogItem(){
   const part = document.getElementById('cat-part').value.trim();
   const code = document.getElementById('cat-code').value.trim();
   const desc = document.getElementById('cat-desc').value.trim();
+  const unit = document.getElementById('cat-unit').value.trim() || 'pza';
   if(!area || !part || !code || !desc){
     toast('Completa todos los campos del material', 'bad');
     return;
   }
   if(editCatalogId){
     const idx = state.catalog.findIndex(x => x.id === editCatalogId);
-    if(idx >= 0) state.catalog[idx] = { ...state.catalog[idx], area, part, code, desc };
+    if(idx >= 0) state.catalog[idx] = { ...state.catalog[idx], area, part, code, desc, unit };
   }else{
-    state.catalog.push({ id: nextId(state.catalog), area, part, code, desc });
+    state.catalog.push({ id: nextId(state.catalog), area, part, code, desc, unit });
   }
   editCatalogId = null;
   clearCatalogForm();
@@ -2464,6 +2567,7 @@ function clearCatalogForm(){
   document.getElementById('cat-part').value = '';
   document.getElementById('cat-code').value = '';
   document.getElementById('cat-desc').value = '';
+  initCatalogUnitSelect('pza');
   editCatalogId = null;
 }
 
@@ -2475,6 +2579,7 @@ function editCatalogArea(area){
   document.getElementById('cat-part').value = item.part;
   document.getElementById('cat-code').value = item.code;
   document.getElementById('cat-desc').value = item.desc;
+  initCatalogUnitSelect(item.unit || 'pza');
   setActiveTab('adm');
   toast('Edita los campos y guarda', 'ok');
 }
@@ -2490,11 +2595,11 @@ function deleteCatalogArea(area){
 function downloadCatalogTemplate(){
   if(!requireAuth('adm')) return;
   const rows = [
-    ['Area', 'No. Parte', 'Codigo', 'Descripcion'],
-    ['Linea A', 'PA-100', 'MAT-001', 'Material de ejemplo 1'],
-    ['Linea A', 'PA-100', 'MAT-002', 'Material de ejemplo 2'],
-    ['Linea A', 'PA-100', 'MAT-003', 'Material de ejemplo 3'],
-    ['Linea B', 'PB-200', 'MAT-010', 'Material de ejemplo 4']
+    ['Area', 'No. Parte', 'Codigo', 'Descripcion', 'Unidad'],
+    ['Linea A', 'PA-100', 'MAT-001', 'Material de ejemplo 1', 'pza'],
+    ['Linea A', 'PA-100', 'MAT-002', 'Material de ejemplo 2', 'kg'],
+    ['Linea A', 'PA-100', 'MAT-003', 'Material de ejemplo 3', 'L'],
+    ['Linea B', 'PB-200', 'MAT-010', 'Material de ejemplo 4', 'm']
   ];
   const csv = rows.map(row => row.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -2550,11 +2655,13 @@ function normalizeCatalogRow(row){
   const part = row['no. parte'] || row['no parte'] || row.part || row.numero_de_parte || row['numero de parte'] || row.bom || row.material;
   const code = row.codigo || row.code || row['codigoc'] || row['codigo material'] || row.material_code;
   const desc = row.descripcion || row.desc || row.description || row.detalle || row.observacion;
+  const unit = row.unidad || row['unidad de medida'] || row['unidad medida'] || row.unit || row.um || 'pza';
   return {
     area: String(area || '').trim(),
     part: String(part || '').trim(),
     code: String(code || '').trim(),
-    desc: String(desc || '').trim()
+    desc: String(desc || '').trim(),
+    unit: String(unit || 'pza').trim() || 'pza'
   };
 }
 
@@ -2788,6 +2895,7 @@ async function initApp(){
   }
 
   scheduleRemoteSync();
+  initCatalogUnitSelect('pza');
   refreshAll();
   if(auth.prod && !prodRows.length) addProdRow();
   initBackupSystem();

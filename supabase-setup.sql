@@ -53,6 +53,7 @@ create table if not exists solicitud_detalles (
     check (estatus_linea in ('pendiente', 'surtido', 'corto')),
   surtido_por text not null default '',
   fecha_atendida text not null default '',
+  unidad_medida text not null default 'pza',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -70,6 +71,7 @@ create table if not exists catalogo_bom (
   no_parte text not null,
   material_codigo text not null,
   descripcion text not null,
+  unidad_medida text not null default 'pza',
   activo boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -186,12 +188,16 @@ values
   ('9000', 'Administrador', 'admin', 'admin123', 'admin', true)
 on conflict (id) do nothing;
 
-insert into catalogo_bom (area, no_parte, material_codigo, descripcion, activo)
+insert into catalogo_bom (area, no_parte, material_codigo, descripcion, unidad_medida, activo)
 values
-  ('Linea A', 'PA-100', 'MAT-001', 'Material de prueba A', true),
-  ('Linea A', 'PA-100', 'MAT-002', 'Material de prueba B', true),
-  ('Linea B', 'PB-200', 'MAT-010', 'Material de prueba C', true)
+  ('Linea A', 'PA-100', 'MAT-001', 'Material de prueba A', 'pza', true),
+  ('Linea A', 'PA-100', 'MAT-002', 'Material de prueba B', 'kg', true),
+  ('Linea B', 'PB-200', 'MAT-010', 'Material de prueba C', 'm', true)
 on conflict (area, no_parte, material_codigo) do nothing;
+
+-- Si ya creaste las tablas antes, ejecuta solo esto:
+-- alter table catalogo_bom add column if not exists unidad_medida text not null default 'pza';
+-- alter table solicitud_detalles add column if not exists unidad_medida text not null default 'pza';
 
 -- ------------------------------------------------------------
 -- (Opcional) Eliminar tabla vieja de demo si ya no la usas
