@@ -121,7 +121,6 @@
     background:rgba(255,255,255,.75);
   }
   .mini-card .num{font-size:28px;font-weight:900;color:var(--brand)}
-  .mini-card.code .num{font-size:18px;letter-spacing:.06em;word-break:break-word;line-height:1.15;white-space:pre-line}
   .mini-card .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
   .hero-title{font-size:28px;font-weight:900;margin:0 0 6px}
   .hero-text{margin:0;color:var(--muted);max-width:70ch;line-height:1.5}
@@ -370,8 +369,8 @@
             <div class="num" id="count-surtidas">0</div>
             <div class="lbl">Solicitudes surtidas</div>
           </div>
-          <div class="mini-card code">
-            <div class="num" id="count-codes">Sin códigos atendidos</div>
+          <div class="mini-card">
+            <div class="num" id="count-codes">0</div>
             <div class="lbl">Códigos atendidos</div>
           </div>
         </div>
@@ -2052,10 +2051,10 @@ function updateTopCounts(){
   const grouped = [...groups.entries()].map(([code, rows]) => ({ code, status: statusOf(rows) }));
   const pending = grouped.filter(x => x.status === 'pendiente').length;
   const surtidas = grouped.filter(x => x.status === 'surtido').length;
-  const attended = grouped.filter(x => x.status !== 'pendiente').map(x => x.code).slice(0, 3);
+  const atendidos = grouped.filter(x => x.status !== 'pendiente').length;
   document.getElementById('count-pending').textContent = pending;
   document.getElementById('count-surtidas').textContent = surtidas;
-  document.getElementById('count-codes').textContent = attended.length ? attended.join('\n') : 'Sin códigos atendidos';
+  document.getElementById('count-codes').textContent = atendidos;
 }
 
 function updateClock(){
@@ -2322,7 +2321,7 @@ function renderWarehouse(){
       <td>${escapeHtml(r.code)}</td>
       <td>${escapeHtml(r.desc)}</td>
       <td><span class="pill">${escapeHtml(unit)}</span></td>
-      <td><strong>${formatQty(r.qtyRequested, unit)}</strong></td>
+      <td><strong>${r.qtyRequested}</strong></td>
       <td>
         <input type="number" min="0" value="${r.qtySupplied || 0}" style="width:84px;padding:8px;border:1px solid var(--line);border-radius:10px"
           onchange="updateRequest(${r.id}, 'qtySupplied', this.value)">
@@ -2374,7 +2373,7 @@ function exportWarehouseExcel(){
       csvCell(r.code),
       csvCell(r.desc),
       csvCell(unit),
-      csvCell(formatQty(r.qtyRequested, unit)),
+      r.qtyRequested,
       csvCell(formatQty(r.qtySupplied || 0, unit)),
       csvCell(r.status),
       csvCell(r.requester),
