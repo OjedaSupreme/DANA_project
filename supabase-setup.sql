@@ -1,5 +1,5 @@
 -- ============================================================
--- DANA - Solicitud de material
+-- SOLIMAT
 -- Ejecuta esto en Supabase → SQL Editor
 -- ============================================================
 
@@ -179,28 +179,10 @@ create policy "usuarios_public_access"
   with check (true);
 
 -- ------------------------------------------------------------
--- Datos iniciales (equivalente a defaultState() de la app)
+-- Sin datos de prueba. Crea el primer administrador desde Supabase:
+--
+-- insert into usuarios (id, nombre, usuario, contrasena, rol, activo)
+-- values ('0001', 'Administrador', 'usuario', 'clave', 'admin', true);
+--
+-- O importa un JSON desde Administrador en la app.
 -- ------------------------------------------------------------
-insert into usuarios (id, nombre, usuario, contrasena, rol, activo)
-values
-  ('1001', 'Demo Produccion', 'prod', 'prod123', 'produccion', true),
-  ('2001', 'Demo Almacen', 'alm', 'alm123', 'almacen', true),
-  ('9000', 'Administrador', 'admin', 'admin123', 'admin', true)
-on conflict (id) do nothing;
-
-insert into catalogo_bom (area, no_parte, material_codigo, descripcion, unidad_medida, activo)
-values
-  ('Linea A', 'PA-100', 'MAT-001', 'Material de prueba A', 'pza', true),
-  ('Linea A', 'PA-100', 'MAT-002', 'Material de prueba B', 'kg', true),
-  ('Linea B', 'PB-200', 'MAT-010', 'Material de prueba C', 'm', true)
-on conflict (area, no_parte, material_codigo) do nothing;
-
--- Si ya creaste las tablas antes, ejecuta solo esto:
--- alter table catalogo_bom add column if not exists unidad_medida text not null default 'pza';
--- alter table solicitud_detalles add column if not exists unidad_medida text not null default 'pza';
-
--- ------------------------------------------------------------
--- (Opcional) Eliminar tabla vieja de demo si ya no la usas
--- ------------------------------------------------------------
--- drop policy if exists "demo_public_access" on registros;
--- drop table if exists registros;
