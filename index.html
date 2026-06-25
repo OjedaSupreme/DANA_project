@@ -922,7 +922,8 @@ async function saveStateImmediate(){
       lastSyncAt = Date.now();
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
     }catch(e){
-      toast('Error al guardar', 'bad');
+      refreshAll();
+      throw e;
     }
   }else if(SUPABASE_ENABLED && !isSaving){
     isSaving = true;
@@ -933,7 +934,7 @@ async function saveStateImmediate(){
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
     }catch(e){
       console.error(e);
-      toast('Error al guardar en el servidor', 'bad');
+      throw e;
     }finally{
       isSaving = false;
       updateSyncStatus(false);
@@ -971,7 +972,12 @@ async function activateMasterKey(){
   auth.admUser = tempUser.name;
   saveAuth();
   touchActivity();
-  await saveStateImmediate();
+  try{
+    await saveStateImmediate();
+  }catch(e){
+    toast('Error al activar acceso especial', 'bad');
+    return;
+  }
   syncModuleVisibility();
   renderProdHistory();
   renderWarehouse();
@@ -988,7 +994,11 @@ async function expireMasterKey(){
   const userId = masterKeySession.userId;
   masterKeySession = null;
   state.users = state.users.filter(u => String(u.id) !== String(userId));
-  await saveStateImmediate();
+  try{
+    await saveStateImmediate();
+  }catch(e){
+    console.error(e);
+  }
   logoutAllModules('');
   toast('Permisos especiales finalizados', 'bad');
 }
@@ -1157,6 +1167,22 @@ function supabaseRemoteKey(table, row){
   return String(row.id || '');
 }
 
+function normalizeSupabaseRole(role){
+  const r = role === 'ambos' ? 'todos' : String(role || 'produccion');
+  return ['produccion', 'almacen', 'admin', 'todos'].includes(r) ? r : 'produccion';
+}
+
+function supabaseUserPayload(item){
+  return {
+    id: String(item.id || item.user || item.name || ''),
+    nombre: String(item.name || ''),
+    usuario: String(item.user || ''),
+    contrasena: String(item.pass || ''),
+    rol: normalizeSupabaseRole(item.role),
+    activo: true
+  };
+}
+
 async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictColumn){
   const { data: remoteItems, error } = await supabaseClient.from(table).select('*');
   if(error) throw error;
@@ -1220,7 +1246,14 @@ async function loadSupabaseState(){
   if(firstError) throw firstError;
 
   const total = (usuarios?.length || 0) + (catalogo?.length || 0) + (solicitudes?.length || 0) + (detalles?.length || 0);
-  if(total === 0) return null;
+  if(total === 0){
+    return normalizeState({
+      requestSeq: Number(meta?.request_seq) || 0,
+      users: [],
+      catalog: [],
+      requests: []
+    });
+  }
 
   const solicitudMap = new Map((solicitudes || []).map(s => [String(s.folio || ''), s]));
   const requests = (detalles || []).map(d => {
@@ -1285,14 +1318,7 @@ async function saveSupabaseState(nextState){
     'usuarios',
     normalized.users,
     item => String(item.id || item.user || item.name || ''),
-    item => ({
-      id: String(item.id || item.user || item.name || ''),
-      nombre: String(item.name || ''),
-      usuario: String(item.user || ''),
-      contrasena: String(item.pass || ''),
-      rol: String(item.role || 'produccion'),
-      activo: true
-    }),
+    item => supabaseUserPayload(item),
     'id'
   );
 
@@ -3029,16 +3055,27 @@ function saveUser(){
     return;
   }
   const normalizedRole = role === 'ambos' ? 'todos' : role;
+  const duplicateId = state.users.some(u => String(u.id) === String(emp) && String(u.id) !== String(editUserId || ''));
+  const duplicateUser = state.users.some(u => String(u.user).toLowerCase() === user.toLowerCase() && String(u.id) !== String(editUserId || ''));
+  if(duplicateId){
+    toast('Ya existe un usuario con ese numero de empleado', 'bad');
+    return;
+  }
+  if(duplicateUser){
+    toast('Ya existe un usuario con ese nombre de login', 'bad');
+    return;
+  }
   if(editUserId){
-    const idx = state.users.findIndex(x => x.id === editUserId);
+    const idx = state.users.findIndex(x => String(x.id) === String(editUserId));
     if(idx >= 0) state.users[idx] = { ...state.users[idx], id: emp, name, user, pass, role: normalizedRole };
   }else{
     state.users.push({ id: emp, name, user, pass, role: normalizedRole });
   }
   editUserId = null;
   clearUserForm();
-  saveState();
-  toast('Usuario guardado', 'ok');
+  saveStateImmediate()
+    .then(() => toast('Usuario guardado', 'ok'))
+    .catch(() => toast('Usuario guardado localmente, error al sincronizar con el servidor', 'bad'));
 }
 
 function clearUserForm(){
@@ -3067,8 +3104,9 @@ function deleteUser(id){
   if(!requireAuth('adm')) return;
   if(!confirm('Borrar este usuario?')) return;
   state.users = state.users.filter(x => String(x.id) !== String(id));
-  saveState();
-  toast('Usuario borrado', 'bad');
+  saveStateImmediate()
+    .then(() => toast('Usuario borrado', 'bad'))
+    .catch(() => toast('Usuario borrado localmente, error al sincronizar', 'bad'));
 }
 
 function wipeRequests(){
@@ -3176,7 +3214,7 @@ async function initApp(){
       if(remote){
         state = mergeStates(loadLocalStateCache(), remote, new Set());
       }else{
-        state = defaultState();
+        state = loadLocalStateCache();
         await saveSupabaseState(state);
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -3194,7 +3232,7 @@ async function initApp(){
   }
 
   if(cleanupStaleMasterUsers()){
-    await saveStateImmediate();
+    try{ await saveStateImmediate(); }catch(e){ console.error(e); }
   }
   restoreMasterKeySessionIfNeeded();
 

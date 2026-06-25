@@ -91,7 +91,7 @@ create table if not exists usuarios (
   usuario text not null unique,
   contrasena text not null,
   rol text not null default 'produccion'
-    check (rol in ('produccion', 'almacen', 'admin')),
+    check (rol in ('produccion', 'almacen', 'admin', 'todos')),
   activo boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -186,3 +186,8 @@ create policy "usuarios_public_access"
 --
 -- O importa un JSON desde Administrador en la app.
 -- ------------------------------------------------------------
+
+-- Si ya tenias la tabla creada, ejecuta esto para permitir rol "todos":
+-- alter table usuarios drop constraint if exists usuarios_rol_check;
+-- alter table usuarios add constraint usuarios_rol_check
+--   check (rol in ('produccion', 'almacen', 'admin', 'todos'));
