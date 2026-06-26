@@ -657,7 +657,7 @@
               </div>
               <div class="field">
                 <label>Contrasena</label>
-                <input id="usr-pass" type="text" placeholder="clave">
+                <input id="usr-pass" type="password" placeholder="Clave (vacío = no cambiar al editar)" autocomplete="new-password">
               </div>
               <div class="field" style="grid-column:1 / -1">
                 <label>Rol</label>
@@ -842,6 +842,78 @@ function normalizeState(input){
   return normalized;
 }
 
+const PASS_HASH_PREFIX = '$sha256$';
+
+function stateForLocalStorage(src){
+  const s = normalizeState(JSON.parse(JSON.stringify(src)));
+  s.users = s.users.map(u => {
+    const row = { id: u.id, name: u.name, user: u.user, role: u.role };
+    if(u.spId) row.spId = u.spId;
+    if(u.pass && isHashedPassword(u.pass)) row.pass = u.pass;
+    return row;
+  });
+  return s;
+}
+
+function writeLocalCache(nextState){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateForLocalStorage(nextState)));
+}
+
+async function hashPassword(plain){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('solimat:' + plain));
+  return PASS_HASH_PREFIX + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isHashedPassword(value){
+  return String(value || '').startsWith(PASS_HASH_PREFIX);
+}
+
+async function verifyPassword(plain, stored){
+  if(!stored) return false;
+  if(isHashedPassword(stored)) return stored === await hashPassword(plain);
+  return stored === plain;
+}
+
+async function findUserForLogin(username, password, mod){
+  for(const u of state.users){
+    if(String(u.user) !== String(username) || !roleAllows(u.role, mod)) continue;
+    if(await verifyPassword(password, u.pass)) return u;
+  }
+  return null;
+}
+
+async function verifySupabaseLogin(username, password){
+  const { data, error } = await supabaseClient.rpc('verify_user_login', {
+    p_usuario: username,
+    p_contrasena: password
+  });
+  if(error) throw error;
+  if(!data || typeof data !== 'object') return null;
+  return {
+    id: String(data.id || ''),
+    name: String(data.name || ''),
+    user: String(data.user || ''),
+    role: String(data.role || 'produccion')
+  };
+}
+
+async function loadSupabaseUsersAdmin(){
+  if(!supabaseClient) return;
+  const { data, error } = await supabaseClient
+    .from('usuarios')
+    .select('id,nombre,usuario,rol,activo')
+    .eq('activo', true);
+  if(error) throw error;
+  state.users = (data || []).map(item => ({
+    id: String(item.id || ''),
+    name: String(item.nombre || ''),
+    user: String(item.usuario || ''),
+    pass: '',
+    role: String(item.rol || 'produccion')
+  })).filter(u => u.id || u.user);
+  writeLocalCache(state);
+}
+
 function loadLocalStateCache(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -856,13 +928,13 @@ function loadLocalStateCache(){
 function loadState(){
   const remote = loadSharePointState();
   if(remote){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+    writeLocalCache(remote);
     return normalizeState(remote);
   }
   if(SHAREPOINT_ENABLED){
     const seeded = defaultState();
     try{ saveSharePointState(seeded); }catch(e){}
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    writeLocalCache(seeded);
     return seeded;
   }
   return loadLocalStateCache();
@@ -915,7 +987,7 @@ function handleBrandSecretTap(event){
 
 async function saveStateImmediate(){
   state = normalizeState(state);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  writeLocalCache(state);
   if(SHAREPOINT_ENABLED && !isSaving){
     try{
       saveSharePointState(state);
@@ -929,7 +1001,7 @@ async function saveStateImmediate(){
     isSaving = true;
     updateSyncStatus(true);
     try{
-      await saveSupabaseState(state);
+      await saveSupabaseState(state, { syncUsers: true });
       lastSyncAt = Date.now();
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
     }catch(e){
@@ -950,11 +1022,13 @@ async function activateMasterKey(){
   }
   const now = Date.now();
   const id = `${MASTER_USER_ID_PREFIX}${now}`;
+  const plainPass = Math.random().toString(36).slice(2, 10);
   const tempUser = {
     id,
     name: 'Acceso Especial',
     user: `esp_${now.toString(36)}`,
-    pass: Math.random().toString(36).slice(2, 10),
+    pass: plainPass,
+    _plainPass: plainPass,
     role: 'todos'
   };
   state.users.push(tempUser);
@@ -1173,14 +1247,16 @@ function normalizeSupabaseRole(role){
 }
 
 function supabaseUserPayload(item){
-  return {
+  const payload = {
     id: String(item.id || item.user || item.name || ''),
     nombre: String(item.name || ''),
     usuario: String(item.user || ''),
-    contrasena: String(item.pass || ''),
     rol: normalizeSupabaseRole(item.role),
     activo: true
   };
+  const secret = item._plainPass || (item.pass && !isHashedPassword(item.pass) ? item.pass : '');
+  if(secret) payload.contrasena = String(secret);
+  return payload;
 }
 
 async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictColumn){
@@ -1225,22 +1301,29 @@ async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictCo
   }
 }
 
-async function loadSupabaseState(){
+
+async function loadSupabaseState(options = {}){
+  const { includeUsers = false } = options;
   if(!supabaseClient) return null;
 
-  const [
-    { data: meta, error: metaErr },
-    { data: usuarios, error: userErr },
-    { data: catalogo, error: catErr },
-    { data: solicitudes, error: solErr },
-    { data: detalles, error: detErr }
-  ] = await Promise.all([
+  const queries = [
     supabaseClient.from('app_meta').select('request_seq').eq('id', 1).maybeSingle(),
-    supabaseClient.from('usuarios').select('id,nombre,usuario,contrasena,rol,activo').eq('activo', true),
     supabaseClient.from('catalogo_bom').select('id,area,no_parte,material_codigo,descripcion,unidad_medida,activo').eq('activo', true),
     supabaseClient.from('solicitudes').select('*'),
     supabaseClient.from('solicitud_detalles').select('*')
-  ]);
+  ];
+  if(includeUsers){
+    queries.splice(1, 0, supabaseClient.from('usuarios').select('id,nombre,usuario,rol,activo').eq('activo', true));
+  }
+
+  const results = await Promise.all(queries);
+  let meta, userErr, catalogo, catErr, solicitudes, solErr, detalles, detErr, usuarios;
+  if(includeUsers){
+    [{ data: meta, error: metaErr }, { data: usuarios, error: userErr }, { data: catalogo, error: catErr }, { data: solicitudes, error: solErr }, { data: detalles, error: detErr }] = results;
+  }else{
+    [{ data: meta, error: metaErr }, { data: catalogo, error: catErr }, { data: solicitudes, error: solErr }, { data: detalles, error: detErr }] = results;
+    usuarios = [];
+  }
 
   const firstError = metaErr || userErr || catErr || solErr || detErr;
   if(firstError) throw firstError;
@@ -1287,13 +1370,15 @@ async function loadSupabaseState(){
     unit: item.unidad_medida || 'pza'
   })).filter(x => x.area || x.part || x.code || x.desc);
 
-  const normalizedUsers = (usuarios || []).map(item => ({
-    id: String(item.id || ''),
-    name: String(item.nombre || ''),
-    user: String(item.usuario || ''),
-    pass: String(item.contrasena || ''),
-    role: String(item.rol || 'produccion')
-  })).filter(u => u.id || u.user);
+  const normalizedUsers = includeUsers
+    ? (usuarios || []).map(item => ({
+        id: String(item.id || ''),
+        name: String(item.nombre || ''),
+        user: String(item.usuario || ''),
+        pass: '',
+        role: String(item.rol || 'produccion')
+      })).filter(u => u.id || u.user)
+    : [];
 
   const maxFolio = Math.max(0, ...(solicitudes || []).map(s => Number(s.folio) || 0));
 
@@ -1305,7 +1390,8 @@ async function loadSupabaseState(){
   });
 }
 
-async function saveSupabaseState(nextState){
+async function saveSupabaseState(nextState, options = {}){
+  const { syncUsers = false } = options;
   if(!supabaseClient) return null;
   const normalized = normalizeState(nextState);
 
@@ -1314,13 +1400,15 @@ async function saveSupabaseState(nextState){
     .upsert({ id: 1, request_seq: normalized.requestSeq }, { onConflict: 'id' });
   if(metaError) throw metaError;
 
-  await syncSupabaseTable(
-    'usuarios',
-    normalized.users,
-    item => String(item.id || item.user || item.name || ''),
-    item => supabaseUserPayload(item),
-    'id'
-  );
+  if(syncUsers){
+    await syncSupabaseTable(
+      'usuarios',
+      normalized.users,
+      item => String(item.id || item.user || item.name || ''),
+      item => supabaseUserPayload(item),
+      'id'
+    );
+  }
 
   await syncSupabaseTable(
     'catalogo_bom',
@@ -1398,7 +1486,7 @@ async function syncSupabaseState(){
     const after = JSON.stringify(normalizeState(merged));
     if(before !== after){
       state = merged;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      writeLocalCache(state);
       refreshAll();
       if(remoteHash !== lastRemoteSnapshot){
         toast('Datos actualizados desde otro equipo', 'ok');
@@ -1422,7 +1510,7 @@ async function refreshStateFromRemoteSupabase(){
   const changed = JSON.stringify(normalizeState(merged)) !== JSON.stringify(normalizeState(state));
   if(changed){
     state = merged;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    writeLocalCache(state);
   }
   return changed;
 }
@@ -1435,7 +1523,7 @@ function refreshStateFromRemote(){
   const changed = JSON.stringify(normalizeState(merged)) !== JSON.stringify(normalizeState(state));
   if(changed){
     state = merged;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    writeLocalCache(state);
   }
   return changed;
 }
@@ -1460,7 +1548,7 @@ function updateSyncStatus(syncing = false){
 
 function saveState(){
   state = normalizeState(state);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  writeLocalCache(state);
   if(SHAREPOINT_ENABLED){
     if(isSaving) return;
     isSaving = true;
@@ -1915,12 +2003,15 @@ function spRequest(method, path, body = null, extraHeaders = {}){
   return null;
 }
 
-function loadSharePointState(){
+function loadSharePointState(options = {}){
+  const { includeUsers = false } = options;
   if(!SHAREPOINT_ENABLED) return null;
   const solicitudes = spGetItems(SHAREPOINT_LISTS.solicitudes, 'Id,Title,Folio,SolicitadoPor,SolicitadoPorUsuario,Area,Estatus,FechaCreacion,FechaAtendida,SurtidoPor,TiempoAtencionMin,Observaciones');
   const detalles = spGetItems(SHAREPOINT_LISTS.detalles, 'Id,Title,FolioSolicitud,NoParte,MaterialCodigo,Descripcion,UnidadMedida,CantidadSolicitada,CantidadSurtida,EstatusLinea,SurtidoPor,FechaAtendida');
   const catalogo = spGetItems(SHAREPOINT_LISTS.catalogo, 'Id,Title,Area,NoParte,MaterialCodigo,Descripcion,UnidadMedida,Activo');
-  const usuarios = spGetItems(SHAREPOINT_LISTS.usuarios, 'Id,Title,Nombre,NoEmpleado,Usuario,Contrasena,Rol,Activo');
+  const usuarios = includeUsers
+    ? spGetItems(SHAREPOINT_LISTS.usuarios, 'Id,Title,Nombre,NoEmpleado,Usuario,Contrasena,Rol,Activo')
+    : [];
 
   if((solicitudes.length + detalles.length + catalogo.length + usuarios.length) === 0) return null;
 
@@ -1956,14 +2047,16 @@ function loadSharePointState(){
     unit: item.UnidadMedida || 'pza'
   })).filter(x => x.area || x.part || x.code || x.desc);
 
-  const normalizedUsers = (usuarios || []).map(item => ({
-    id: String(item.NoEmpleado || item.Title || ''),
-    name: String(item.Nombre || item.Title || ''),
-    user: String(item.Usuario || ''),
-    pass: String(item.Contrasena || ''),
-    role: String(item.Rol || 'produccion'),
-    spId: Number(item.Id) || 0
-  })).filter(u => u.id || u.user);
+  const normalizedUsers = includeUsers
+    ? (usuarios || []).map(item => ({
+        id: String(item.NoEmpleado || item.Title || ''),
+        name: String(item.Nombre || item.Title || ''),
+        user: String(item.Usuario || ''),
+        pass: String(item.Contrasena || ''),
+        role: String(item.Rol || 'produccion'),
+        spId: Number(item.Id) || 0
+      })).filter(u => u.id || u.user)
+    : [];
 
   const maxFolio = Math.max(0, ...solicitudes.map(s => Number(s.Folio) || 0));
 
@@ -2065,7 +2158,7 @@ function syncSharePointState(){
     const after = JSON.stringify(normalizeState(merged));
     if(before !== after){
       state = merged;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      writeLocalCache(state);
       refreshAll();
       if(remoteHash !== lastRemoteSnapshot){
         toast('Datos actualizados desde otro equipo', 'ok');
@@ -2258,29 +2351,47 @@ function roleAllows(role, module){
   return (map[module] || []).includes(role);
 }
 
-function loginModule(mod){
+async function loginModule(mod){
   const userEl = document.getElementById(`${mod}-login-user`);
   const passEl = document.getElementById(`${mod}-login-pass`);
   const user = (userEl?.value || '').trim();
   const pass = (passEl?.value || '').trim();
-  if(mod === 'adm'){
-    const foundAdm = state.users.find(u => roleAllows(u.role, 'adm') && u.user === user && u.pass === pass);
-    if(foundAdm){
-      auth.adm = true; auth.admUser = foundAdm.name || foundAdm.user;
-      saveAuth();
-      toast('Administrador desbloqueado', 'ok');
-      setActiveTab('adm');
-      renderUsers();
-      renderCatalog();
-      clearLoginFields('adm');
-      return;
-    }
-    toast('Credenciales de administrador incorrectas', 'bad');
+  if(!user || !pass){
+    toast('Usuario y contrasena requeridos', 'bad');
     return;
   }
-  const found = state.users.find(u => roleAllows(u.role, mod) && u.user === user && u.pass === pass);
-  if(!found){
-    toast('Usuario o contrasena incorrectos', 'bad');
+
+  let found = null;
+  try{
+    if(SUPABASE_ENABLED){
+      found = await verifySupabaseLogin(user, pass);
+    }else{
+      found = await findUserForLogin(user, pass, mod);
+    }
+  }catch(e){
+    console.error(e);
+    toast('Error al verificar credenciales', 'bad');
+    return;
+  }
+
+  if(!found || !roleAllows(found.role, mod)){
+    toast(mod === 'adm' ? 'Credenciales de administrador incorrectas' : 'Usuario o contrasena incorrectos', 'bad');
+    return;
+  }
+
+  if(mod === 'adm'){
+    auth.adm = true; auth.admUser = found.name || found.user;
+    saveAuth();
+    toast('Administrador desbloqueado', 'ok');
+    setActiveTab('adm');
+    try{
+      if(SUPABASE_ENABLED) await loadSupabaseUsersAdmin();
+    }catch(e){
+      console.error(e);
+    }
+    renderUsers();
+    renderCatalog();
+    clearLoginFields('adm');
     return;
   }
   if(mod === 'prod'){
@@ -2829,7 +2940,7 @@ function renderUsers(){
       <div class="list-item-top">
         <div>
           <div class="list-item-title">${escapeHtml(u.name)} <span class="pill">${escapeHtml(roleLabel(u.role))}</span></div>
-          <div class="list-item-sub">No. empleado: <strong>${escapeHtml(u.id)}</strong> · ${escapeHtml(u.user)} / ${escapeHtml(u.pass)}</div>
+          <div class="list-item-sub">No. empleado: <strong>${escapeHtml(u.id)}</strong> · usuario: ${escapeHtml(u.user)}</div>
         </div>
         <div class="row-actions">
           <button class="btn btn-outline btn-sm" onclick="editUser('${escapeJs(u.id)}')">Editar</button>
@@ -3041,12 +3152,16 @@ function importCatalogTemplate(event){
 
 function saveUser(){
   if(!requireAuth('adm')) return;
+  saveUserAsync();
+}
+
+async function saveUserAsync(){
   const name = document.getElementById('usr-name').value.trim();
   const emp = document.getElementById('usr-emp').value.trim();
   const user = document.getElementById('usr-user').value.trim();
-  const pass = document.getElementById('usr-pass').value.trim();
+  let pass = document.getElementById('usr-pass').value.trim();
   const role = document.getElementById('usr-role').value;
-  if(!name || !emp || !user || !pass){
+  if(!name || !emp || !user || (!pass && !editUserId)){
     toast('Completa todos los campos del usuario', 'bad');
     return;
   }
@@ -3065,11 +3180,44 @@ function saveUser(){
     toast('Ya existe un usuario con ese nombre de login', 'bad');
     return;
   }
+
+  let plainPass = pass;
+  if(editUserId && !plainPass && SUPABASE_ENABLED){
+    try{
+      const { data } = await supabaseClient.from('usuarios').select('contrasena').eq('id', emp).maybeSingle();
+      plainPass = data?.contrasena || '';
+    }catch(e){
+      console.error(e);
+    }
+  }
+  if(editUserId && !plainPass && !SUPABASE_ENABLED){
+    const prev = state.users.find(x => String(x.id) === String(editUserId));
+    plainPass = prev?.pass && !isHashedPassword(prev.pass) ? prev.pass : '';
+    if(prev?.pass && isHashedPassword(prev.pass) && !pass){
+      toast('Indica la contrasena para confirmar cambios', 'bad');
+      return;
+    }
+  }
+  if(!plainPass && !editUserId){
+    toast('La contrasena es obligatoria', 'bad');
+    return;
+  }
+
+  const storedPass = plainPass ? await hashPassword(plainPass) : '';
+  const record = {
+    id: emp,
+    name,
+    user,
+    pass: storedPass,
+    role: normalizedRole,
+    _plainPass: plainPass
+  };
+
   if(editUserId){
     const idx = state.users.findIndex(x => String(x.id) === String(editUserId));
-    if(idx >= 0) state.users[idx] = { ...state.users[idx], id: emp, name, user, pass, role: normalizedRole };
+    if(idx >= 0) state.users[idx] = { ...state.users[idx], ...record };
   }else{
-    state.users.push({ id: emp, name, user, pass, role: normalizedRole });
+    state.users.push(record);
   }
   editUserId = null;
   clearUserForm();
@@ -3083,6 +3231,7 @@ function clearUserForm(){
   document.getElementById('usr-emp').value = '';
   document.getElementById('usr-user').value = '';
   document.getElementById('usr-pass').value = '';
+  document.getElementById('usr-pass').placeholder = 'Clave (vacío = no cambiar al editar)';
   document.getElementById('usr-role').value = 'produccion';
   editUserId = null;
 }
@@ -3095,7 +3244,8 @@ function editUser(id){
   document.getElementById('usr-name').value = u.name;
   document.getElementById('usr-emp').value = u.id;
   document.getElementById('usr-user').value = u.user;
-  document.getElementById('usr-pass').value = u.pass;
+  document.getElementById('usr-pass').value = '';
+  document.getElementById('usr-pass').placeholder = 'Dejar vacio para no cambiar';
   document.getElementById('usr-role').value = u.role === 'ambos' ? 'todos' : u.role;
   setActiveTab('adm');
 }
@@ -3217,7 +3367,7 @@ async function initApp(){
         state = loadLocalStateCache();
         await saveSupabaseState(state);
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      writeLocalCache(state);
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
       lastSyncAt = Date.now();
       toast('Conexion establecida', 'ok');
