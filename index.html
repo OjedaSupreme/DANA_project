@@ -1266,9 +1266,19 @@ async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictCo
   const localKeys = new Set();
   const payloads = [];
   for(const item of localItems){
-    const payload = payloadOf(item);
+    let payload = payloadOf(item);
     const key = String(keyOf(item) || payload[conflictColumn] || '');
     if(!key) continue;
+    if(table === 'usuarios'){
+      if(!payload.contrasena){
+        const remoteRow = (remoteItems || []).find(r => String(r.id) === key);
+        if(remoteRow?.contrasena) payload.contrasena = String(remoteRow.contrasena);
+      }
+      if(!payload.contrasena){
+        console.warn('Omitiendo upsert de usuario sin contrasena:', key);
+        continue;
+      }
+    }
     localKeys.add(key);
     payloads.push(payload);
   }
@@ -3221,9 +3231,14 @@ async function saveUserAsync(){
   }
   editUserId = null;
   clearUserForm();
-  saveStateImmediate()
-    .then(() => toast('Usuario guardado', 'ok'))
-    .catch(() => toast('Usuario guardado localmente, error al sincronizar con el servidor', 'bad'));
+  try{
+    await saveStateImmediate();
+    state.users.forEach(u => { delete u._plainPass; });
+    toast('Usuario guardado', 'ok');
+  }catch(e){
+    console.error(e);
+    toast('Usuario guardado localmente, error al sincronizar con el servidor', 'bad');
+  }
 }
 
 function clearUserForm(){
