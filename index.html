@@ -382,7 +382,7 @@
         <h1 class="hero-title">Control de solicitudes, surtido y catalogo en una sola vista</h1>
         <p class="hero-text">
           Plataforma SOLIMAT para gestionar solicitudes, surtido en almacen y administracion del catalogo.
-          Los datos se sincronizan en tiempo real para todo el equipo.
+          Los datos se guardan unicamente en el servidor y se sincronizan en tiempo real para todo el equipo.
         </p>
         <div class="hero-grid">
           <div class="mini-card">
@@ -743,17 +743,17 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const STORAGE_KEY = 'dana_material_local_v2';
 const AUTH_KEY = 'dana_material_auth_v2';
 const AUTH_ACTIVITY_KEY = 'dana_material_auth_activity_v1';
+const LEGACY_STORAGE_KEYS = ['dana_material_local_v2', 'dana_material_local_v1'];
 const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const MASTER_KEY_DURATION_MS = 60 * 1000;
 const MASTER_USER_ID_PREFIX = '__MASTER_';
 const CATALOG_UNITS = ['pza', 'kg', 'g', 'L', 'm', 'm²', 'rollo', 'caja', 'lt', 'gal'];
-const BACKUP_KEY = 'dana_material_backup_v1';
+const BACKUP_INTERVAL_MS = 10 * 60 * 1000;
+const REMOTE_DB_REQUIRED = true;
 const BACKUP_DB_NAME = 'dana_material_backup_db_v1';
 const BACKUP_DB_STORE = 'handles';
-const BACKUP_INTERVAL_MS = 10 * 60 * 1000;
 const SHAREPOINT_SITE_URL = 'https://dananet.sharepoint.com/sites/DANACHIHUAHUACONECT';
 const SHAREPOINT_LISTS = {
   solicitudes: 'Solicitudes',
@@ -779,6 +779,7 @@ function initSupabaseClient(){
 
 const supabaseClient = initSupabaseClient();
 const SUPABASE_ENABLED = !!supabaseClient;
+const DATABASE_ENABLED = SHAREPOINT_ENABLED || SUPABASE_ENABLED;
 let sharepointDigest = '';
 let sharepointDigestExpires = 0;
 let isSaving = false;
@@ -799,6 +800,17 @@ let lastActivityAt = Date.now();
 let brandTapCount = 0;
 let brandTapTimer = null;
 let masterKeySession = null;
+
+function purgeLegacyBrowserStorage(){
+  try{
+    for(const key of LEGACY_STORAGE_KEYS){
+      localStorage.removeItem(key);
+    }
+    localStorage.removeItem('dana_material_backup_v1');
+    sessionStorage.removeItem(AUTH_KEY);
+    sessionStorage.removeItem(AUTH_ACTIVITY_KEY);
+  }catch(e){}
+}
 
 function defaultState(){
   return {
@@ -844,21 +856,6 @@ function normalizeState(input){
 
 const PASS_HASH_PREFIX = '$sha256$';
 
-function stateForLocalStorage(src){
-  const s = normalizeState(JSON.parse(JSON.stringify(src)));
-  s.users = s.users.map(u => {
-    const row = { id: u.id, name: u.name, user: u.user, role: u.role };
-    if(u.spId) row.spId = u.spId;
-    if(u.pass && isHashedPassword(u.pass)) row.pass = u.pass;
-    return row;
-  });
-  return s;
-}
-
-function writeLocalCache(nextState){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateForLocalStorage(nextState)));
-}
-
 async function hashPassword(plain){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('solimat:' + plain));
   return PASS_HASH_PREFIX + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -883,9 +880,10 @@ async function findUserForLogin(username, password, mod){
 }
 
 async function verifySupabaseLogin(username, password){
+  const hashed = await hashPassword(password);
   const { data, error } = await supabaseClient.rpc('verify_user_login', {
     p_usuario: username,
-    p_contrasena: password
+    p_contrasena: hashed
   });
   if(error) throw error;
   if(!data || typeof data !== 'object') return null;
@@ -895,6 +893,12 @@ async function verifySupabaseLogin(username, password){
     user: String(data.user || ''),
     role: String(data.role || 'produccion')
   };
+}
+
+async function ensurePasswordHashed(value){
+  if(!value) return '';
+  if(isHashedPassword(value)) return value;
+  return hashPassword(value);
 }
 
 async function loadSupabaseUsersAdmin(){
@@ -911,58 +915,20 @@ async function loadSupabaseUsersAdmin(){
     pass: '',
     role: String(item.rol || 'produccion')
   })).filter(u => u.id || u.user);
-  writeLocalCache(state);
-}
-
-function loadLocalStateCache(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && typeof parsed === 'object') return normalizeState(parsed);
-    }
-  }catch(e){}
-  return defaultState();
 }
 
 function loadState(){
-  const remote = loadSharePointState();
-  if(remote){
-    writeLocalCache(remote);
-    return normalizeState(remote);
-  }
   if(SHAREPOINT_ENABLED){
+    const remote = loadSharePointState();
+    if(remote) return normalizeState(remote);
     const seeded = defaultState();
     try{ saveSharePointState(seeded); }catch(e){}
-    writeLocalCache(seeded);
     return seeded;
   }
-  return loadLocalStateCache();
+  return defaultState();
 }
 
 function loadAuth(){
-  try{
-    const lastAct = Number(sessionStorage.getItem(AUTH_ACTIVITY_KEY) || 0);
-    if(lastAct && Date.now() - lastAct >= SESSION_TIMEOUT_MS){
-      sessionStorage.removeItem(AUTH_KEY);
-      sessionStorage.removeItem(AUTH_ACTIVITY_KEY);
-      return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
-    }
-    if(lastAct) lastActivityAt = lastAct;
-
-    const raw = sessionStorage.getItem(AUTH_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && typeof parsed === 'object') return {
-        prod: !!parsed.prod,
-        alm: !!parsed.alm,
-        adm: !!parsed.adm,
-        prodUser: parsed.prodUser || '',
-        almUser: parsed.almUser || '',
-        admUser: parsed.admUser || ''
-      };
-    }
-  }catch(e){}
   return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
 }
 
@@ -987,7 +953,9 @@ function handleBrandSecretTap(event){
 
 async function saveStateImmediate(){
   state = normalizeState(state);
-  writeLocalCache(state);
+  if(!DATABASE_ENABLED){
+    throw new Error('Sin conexion a base de datos');
+  }
   if(SHAREPOINT_ENABLED && !isSaving){
     try{
       saveSharePointState(state);
@@ -1027,8 +995,7 @@ async function activateMasterKey(){
     id,
     name: 'Acceso Especial',
     user: `esp_${now.toString(36)}`,
-    pass: plainPass,
-    _plainPass: plainPass,
+    pass: await hashPassword(plainPass),
     role: 'todos'
   };
   state.users.push(tempUser);
@@ -1119,7 +1086,6 @@ function restoreMasterKeySessionIfNeeded(){
 
 function touchActivity(){
   lastActivityAt = Date.now();
-  sessionStorage.setItem(AUTH_ACTIVITY_KEY, String(lastActivityAt));
 }
 
 function checkSessionTimeout(){
@@ -1137,24 +1103,6 @@ function logoutAllModules(reason = ''){
 }
 
 function loadBackupConfig(){
-  try{
-    const raw = localStorage.getItem(BACKUP_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && typeof parsed === 'object'){
-        return {
-          path: String(parsed.path || '').trim(),
-          format: ['json', 'csv', 'txt'].includes(parsed.format) ? parsed.format : 'json',
-          include: {
-            requests: parsed.include?.requests !== false,
-            catalog: parsed.include?.catalog !== false,
-            users: parsed.include?.users !== false,
-            meta: parsed.include?.meta !== false
-          }
-        };
-      }
-    }
-  }catch(e){}
   return {
     path: '',
     format: 'json',
@@ -1163,12 +1111,10 @@ function loadBackupConfig(){
 }
 
 function saveBackupConfig(){
-  localStorage.setItem(BACKUP_KEY, JSON.stringify(backupConfig));
   refreshBackupUI();
 }
 
 function saveAuth(){
-  sessionStorage.setItem(AUTH_KEY, JSON.stringify(auth));
   if(auth.prod || auth.alm || auth.adm) touchActivity();
   syncModuleVisibility();
 }
@@ -1254,8 +1200,7 @@ function supabaseUserPayload(item){
     rol: normalizeSupabaseRole(item.role),
     activo: true
   };
-  const secret = item._plainPass || (item.pass && !isHashedPassword(item.pass) ? item.pass : '');
-  if(secret) payload.contrasena = String(secret);
+  if(item.pass) payload.contrasena = String(item.pass);
   return payload;
 }
 
@@ -1273,6 +1218,9 @@ async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictCo
       if(!payload.contrasena){
         const remoteRow = (remoteItems || []).find(r => String(r.id) === key);
         if(remoteRow?.contrasena) payload.contrasena = String(remoteRow.contrasena);
+      }
+      if(payload.contrasena){
+        payload.contrasena = await ensurePasswordHashed(payload.contrasena);
       }
       if(!payload.contrasena){
         console.warn('Omitiendo upsert de usuario sin contrasena:', key);
@@ -1496,7 +1444,6 @@ async function syncSupabaseState(){
     const after = JSON.stringify(normalizeState(merged));
     if(before !== after){
       state = merged;
-      writeLocalCache(state);
       refreshAll();
       if(remoteHash !== lastRemoteSnapshot){
         toast('Datos actualizados desde otro equipo', 'ok');
@@ -1520,7 +1467,6 @@ async function refreshStateFromRemoteSupabase(){
   const changed = JSON.stringify(normalizeState(merged)) !== JSON.stringify(normalizeState(state));
   if(changed){
     state = merged;
-    writeLocalCache(state);
   }
   return changed;
 }
@@ -1533,7 +1479,6 @@ function refreshStateFromRemote(){
   const changed = JSON.stringify(normalizeState(merged)) !== JSON.stringify(normalizeState(state));
   if(changed){
     state = merged;
-    writeLocalCache(state);
   }
   return changed;
 }
@@ -1558,7 +1503,10 @@ function updateSyncStatus(syncing = false){
 
 function saveState(){
   state = normalizeState(state);
-  writeLocalCache(state);
+  if(!DATABASE_ENABLED){
+    toast('Sin conexion a base de datos. Los datos no se pueden guardar.', 'bad');
+    return;
+  }
   if(SHAREPOINT_ENABLED){
     if(isSaving) return;
     isSaving = true;
@@ -1635,7 +1583,6 @@ function saveBackupExportOptions(){
   const opts = getBackupExportOptions();
   backupConfig.format = opts.format;
   backupConfig.include = { ...opts.include };
-  localStorage.setItem(BACKUP_KEY, JSON.stringify(backupConfig));
 }
 
 function validateExportInclude(include){
@@ -2168,7 +2115,6 @@ function syncSharePointState(){
     const after = JSON.stringify(normalizeState(merged));
     if(before !== after){
       state = merged;
-      writeLocalCache(state);
       refreshAll();
       if(remoteHash !== lastRemoteSnapshot){
         toast('Datos actualizados desde otro equipo', 'ok');
@@ -3191,36 +3137,36 @@ async function saveUserAsync(){
     return;
   }
 
-  let plainPass = pass;
-  if(editUserId && !plainPass && SUPABASE_ENABLED){
-    try{
-      const { data } = await supabaseClient.from('usuarios').select('contrasena').eq('id', emp).maybeSingle();
-      plainPass = data?.contrasena || '';
-    }catch(e){
-      console.error(e);
+  let storedPass = '';
+  if(pass){
+    storedPass = await hashPassword(pass);
+  }else if(editUserId){
+    if(SUPABASE_ENABLED){
+      try{
+        const { data } = await supabaseClient.from('usuarios').select('contrasena').eq('id', emp).maybeSingle();
+        storedPass = data?.contrasena || '';
+      }catch(e){
+        console.error(e);
+      }
+    }else{
+      const prev = state.users.find(x => String(x.id) === String(editUserId));
+      storedPass = prev?.pass || '';
     }
   }
-  if(editUserId && !plainPass && !SUPABASE_ENABLED){
-    const prev = state.users.find(x => String(x.id) === String(editUserId));
-    plainPass = prev?.pass && !isHashedPassword(prev.pass) ? prev.pass : '';
-    if(prev?.pass && isHashedPassword(prev.pass) && !pass){
-      toast('Indica la contrasena para confirmar cambios', 'bad');
-      return;
-    }
-  }
-  if(!plainPass && !editUserId){
-    toast('La contrasena es obligatoria', 'bad');
+  if(!storedPass){
+    toast(editUserId ? 'Indica la contrasena o conserva la existente' : 'La contrasena es obligatoria', 'bad');
     return;
   }
+  if(storedPass && !isHashedPassword(storedPass) && !pass){
+    storedPass = await hashPassword(storedPass);
+  }
 
-  const storedPass = plainPass ? await hashPassword(plainPass) : '';
   const record = {
     id: emp,
     name,
     user,
     pass: storedPass,
-    role: normalizedRole,
-    _plainPass: plainPass
+    role: normalizedRole
   };
 
   if(editUserId){
@@ -3233,11 +3179,13 @@ async function saveUserAsync(){
   clearUserForm();
   try{
     await saveStateImmediate();
-    state.users.forEach(u => { delete u._plainPass; });
     toast('Usuario guardado', 'ok');
   }catch(e){
     console.error(e);
-    toast('Usuario guardado localmente, error al sincronizar con el servidor', 'bad');
+    toast('Error al guardar en el servidor', 'bad');
+    if(SUPABASE_ENABLED) await refreshStateFromRemoteSupabase();
+    else if(SHAREPOINT_ENABLED) refreshStateFromRemote();
+    refreshAll();
   }
 }
 
@@ -3271,7 +3219,12 @@ function deleteUser(id){
   state.users = state.users.filter(x => String(x.id) !== String(id));
   saveStateImmediate()
     .then(() => toast('Usuario borrado', 'bad'))
-    .catch(() => toast('Usuario borrado localmente, error al sincronizar', 'bad'));
+    .catch(async () => {
+      toast('Error al borrar en el servidor', 'bad');
+      if(SUPABASE_ENABLED) await refreshStateFromRemoteSupabase();
+      else if(SHAREPOINT_ENABLED) refreshStateFromRemote();
+      refreshAll();
+    });
 }
 
 function wipeRequests(){
@@ -3367,27 +3320,33 @@ window.addEventListener('focus', () => {
 });
 
 async function initApp(){
+  purgeLegacyBrowserStorage();
   syncModeLabel();
   updateClock();
   activeAppTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'prod';
-  if(auth.prod || auth.alm || auth.adm) touchActivity();
+
+  if(!DATABASE_ENABLED){
+    toast('Configura Supabase o abre la app desde SharePoint para guardar datos', 'bad');
+    refreshAll();
+    return;
+  }
 
   if(SUPABASE_ENABLED){
-    showLoading('Cargando...');
+    showLoading('Cargando datos del servidor...');
     try{
       const remote = await loadSupabaseState();
       if(remote){
-        state = mergeStates(loadLocalStateCache(), remote, new Set());
+        state = normalizeState(remote);
       }else{
-        state = loadLocalStateCache();
+        state = defaultState();
         await saveSupabaseState(state);
       }
-      writeLocalCache(state);
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
       lastSyncAt = Date.now();
-      toast('Conexion establecida', 'ok');
+      toast('Conexion establecida — datos solo en servidor', 'ok');
     }catch(e){
       console.error(e);
+      state = defaultState();
       toast('No se pudo conectar al servidor de datos', 'bad');
     }finally{
       hideLoading();

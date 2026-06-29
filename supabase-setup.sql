@@ -89,7 +89,7 @@ create table if not exists usuarios (
   id text primary key,
   nombre text not null,
   usuario text not null unique,
-  contrasena text not null,
+  contrasena text not null,  -- hash SHA-256: $sha256$ + hex (ver solimat_password_hash)
   rol text not null default 'produccion'
     check (rol in ('produccion', 'almacen', 'admin', 'todos')),
   activo boolean not null default true,
