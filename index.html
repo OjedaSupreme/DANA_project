@@ -185,6 +185,76 @@
   .prod-layout #prod-history .list-item-title{font-size:13px}
   .prod-layout #prod-history .list-item-sub{font-size:11px;line-height:1.35}
   .prod-layout #prod-history .pill{font-size:10px;padding:5px 8px}
+  .prod-tokens-panel{margin-top:18px}
+  .token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .token-card{
+    background:linear-gradient(145deg,#f8fbff 0%,#eef4fc 100%);
+    border:2px dashed rgba(29,78,216,.35);
+    border-radius:var(--radius);
+    padding:18px 16px;
+    text-align:center;
+    box-shadow:var(--shadow);
+  }
+  .token-card.surtido{border-color:rgba(21,128,61,.45);background:linear-gradient(145deg,#f4fdf7 0%,#ecfdf3 100%)}
+  .token-card.corto{border-color:rgba(180,83,9,.45);background:linear-gradient(145deg,#fffbf5 0%,#fef3e2 100%)}
+  .token-card-folio{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .token-code{
+    font-size:30px;font-weight:900;letter-spacing:.18em;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:var(--brand);margin:6px 0 10px;word-break:break-all;line-height:1.2
+  }
+  .token-card-meta{font-size:12px;color:var(--muted);margin-bottom:4px}
+  .token-card-date{font-size:11px;color:#94a3b8;margin-bottom:12px}
+  .token-card .btn{margin-top:4px;width:100%}
+  .alm-verify-panel{
+    margin-bottom:18px;padding:20px 22px;border-radius:var(--radius);
+    background:linear-gradient(135deg,rgba(29,78,216,.08),rgba(14,165,233,.06)),#fff;
+    border:1px solid rgba(29,78,216,.18);box-shadow:var(--shadow)
+  }
+  .alm-verify-top{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
+  .alm-verify-icon{
+    width:48px;height:48px;border-radius:14px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--brand),var(--brand2));
+    color:#fff;display:grid;place-items:center;font-size:22px;
+    box-shadow:0 10px 24px rgba(29,78,216,.25)
+  }
+  .alm-verify-title{margin:0 0 4px;font-size:17px;font-weight:800;color:var(--text)}
+  .alm-verify-sub{margin:0;font-size:13px;color:var(--muted);line-height:1.45;max-width:62ch}
+  .alm-verify-form{
+    display:grid;grid-template-columns:minmax(140px,180px) minmax(200px,1fr) auto;
+    gap:12px;align-items:end
+  }
+  .alm-token-input{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:22px;font-weight:800;letter-spacing:.2em;text-align:center;
+    text-transform:uppercase;padding:14px 12px!important;
+    border:2px solid rgba(29,78,216,.25)!important;border-radius:14px!important;
+    background:#f8fbff!important;color:var(--brand)
+  }
+  .alm-token-input:focus{border-color:var(--brand)!important;box-shadow:0 0 0 4px rgba(29,78,216,.12)}
+  .alm-token-input::placeholder{font-size:14px;letter-spacing:.08em;color:#94a3b8;font-weight:600}
+  .alm-verify-btn{min-height:52px;padding:0 22px!important;white-space:nowrap}
+  .alm-unlocked-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .alm-unlocked-badge{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+    background:rgba(21,128,61,.1);border:1px solid rgba(21,128,61,.25);
+    color:#166534;font-size:12px;font-weight:800
+  }
+  .alm-folio-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .alm-folio-chip{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;
+    font-size:12px;font-weight:800;border:1px solid var(--line);background:#fff;color:var(--muted)
+  }
+  .alm-folio-chip.unlocked{background:rgba(21,128,61,.08);border-color:rgba(21,128,61,.3);color:#166534}
+  .alm-folio-chip.pending-lock{background:rgba(180,83,9,.06);border-color:rgba(180,83,9,.25);color:#92400e}
+  tr.alm-row-locked{opacity:.72}
+  tr.alm-row-locked td{ background:rgba(248,250,252,.85) }
+  tr.alm-row-unlocked td:first-child{border-left:4px solid #22c55e}
+  .alm-lock-note{font-size:11px;color:#92400e;margin-top:4px;font-weight:700}
+  @media (max-width:900px){
+    .alm-verify-form{grid-template-columns:1fr}
+    .alm-verify-btn{width:100%}
+  }
   .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .panel,.table-card,.form-card,.list-card{padding:24px 28px}
   .panel-head{
@@ -484,6 +554,17 @@
             <div id="prod-history"></div>
           </div>
         </div>
+
+        <div class="panel prod-tokens-panel hidden" id="prod-tokens-panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Mis codigos de verificacion</h2>
+              <p class="panel-sub">Cada solicitud genera un codigo unico. Solo tu puedes verlo aqui — entregalo a almacen para surtir.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="renderProdTokens()">Actualizar</button>
+          </div>
+          <div id="prod-tokens" class="token-grid"></div>
+        </div>
       </div>
     </section>
 
@@ -510,7 +591,7 @@
           <div class="panel-head">
             <div>
               <h2 class="panel-title">Almacen</h2>
-              <p class="panel-sub">Busca, filtra y actualiza solicitudes surtidas o cortas.</p>
+              <p class="panel-sub">Verifica el codigo de produccion, luego actualiza cantidades y estatus.</p>
             </div>
             <div class="stack">
               <div class="pill ok" id="alm-user-pill">Sesion activa</div>
@@ -532,6 +613,31 @@
             <div class="card"><div class="num" id="sum-pending">0</div><div class="lbl">Pendientes</div></div>
             <div class="card"><div class="num" id="sum-surtido">0</div><div class="lbl">Surtidas</div></div>
             <div class="card"><div class="num" id="sum-corto">0</div><div class="lbl">Cortas</div></div>
+          </div>
+
+          <div class="alm-verify-panel" id="alm-verify-panel">
+            <div class="alm-verify-top">
+              <div class="alm-verify-icon" aria-hidden="true">🔐</div>
+              <div>
+                <h3 class="alm-verify-title">Verificar codigo de solicitud</h3>
+                <p class="alm-verify-sub">Produccion entrega un codigo por folio. Validarlo aqui desbloquea el surtido de esa solicitud en la tabla.</p>
+              </div>
+            </div>
+            <div class="alm-folio-chips" id="alm-folio-chips"></div>
+            <div class="alm-verify-form">
+              <div class="field" style="margin:0">
+                <label>Folio pendiente</label>
+                <select id="alm-verify-folio" style="padding:12px;border:1px solid var(--line);border-radius:12px;width:100%"></select>
+              </div>
+              <div class="field" style="margin:0">
+                <label>Codigo de verificacion</label>
+                <input id="alm-verify-token" class="alm-token-input" type="text" placeholder="ABC-1234"
+                  autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8"
+                  oninput="formatAlmTokenInput(this)" onkeydown="if(event.key==='Enter')verifyAlmToken()">
+              </div>
+              <button class="btn btn-primary alm-verify-btn" type="button" onclick="verifyAlmToken()">Verificar y desbloquear</button>
+            </div>
+            <div class="alm-unlocked-badges" id="alm-unlocked-badges"></div>
           </div>
 
           <div class="table-wrap">
@@ -800,6 +906,7 @@ let lastActivityAt = Date.now();
 let brandTapCount = 0;
 let brandTapTimer = null;
 let masterKeySession = null;
+let unlockedFolios = new Set();
 
 function purgeLegacyBrowserStorage(){
   try{
@@ -855,6 +962,215 @@ function normalizeState(input){
 }
 
 const PASS_HASH_PREFIX = '$sha256$';
+
+async function hashSupplyToken(plain){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('solimat-token:' + plain));
+  return PASS_HASH_PREFIX + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSupplyToken(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const block = len => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${block(3)}-${block(4)}`;
+}
+
+function getGroupedRequestsByFolio(requests){
+  const map = new Map();
+  for(const r of requests || []){
+    const code = String(r.requestCode || '');
+    if(!code) continue;
+    if(!map.has(code)) map.set(code, []);
+    map.get(code).push(r);
+  }
+  return map;
+}
+
+function folioStatus(rows){
+  if(!rows?.length) return 'pendiente';
+  if(rows.every(r => r.status === 'surtido')) return 'surtido';
+  if(rows.every(r => r.status === 'corto')) return 'corto';
+  return 'pendiente';
+}
+
+function isRequestOwnedByCurrentProdUser(row){
+  const login = String(auth.prodLogin || auth.prodUser || '').trim().toLowerCase();
+  const ownerLogin = String(row?.requesterUser || '').trim().toLowerCase();
+  if(login && ownerLogin) return login === ownerLogin;
+  const display = String(auth.prodUser || '').trim().toLowerCase();
+  const requester = String(row?.requester || '').trim().toLowerCase();
+  return display && requester === display;
+}
+
+function copySupplyToken(token){
+  const value = String(token || '').trim();
+  if(!value) return;
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(value)
+      .then(() => toast('Codigo copiado al portapapeles', 'ok'))
+      .catch(() => toast(value, 'ok'));
+    return;
+  }
+  toast(value, 'ok');
+}
+
+function formatTokenDisplay(value){
+  const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  if(raw.length <= 3) return raw;
+  return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+}
+
+function formatAlmTokenInput(el){
+  if(!el) return;
+  el.value = formatTokenDisplay(el.value);
+}
+
+function getPendingFolioGroups(){
+  const groups = getGroupedRequestsByFolio(state.requests);
+  const pending = [];
+  for(const [folio, rows] of groups){
+    if(folioStatus(rows) === 'pendiente') pending.push({ folio, rows });
+  }
+  pending.sort((a, b) => Number(b.folio) - Number(a.folio));
+  return pending;
+}
+
+function folioRequiresToken(rows){
+  return !!(rows?.[0]?.supplyTokenHash);
+}
+
+function isFolioUnlocked(folio, rows){
+  if(!folioRequiresToken(rows || state.requests.filter(r => String(r.requestCode) === String(folio)))) return true;
+  return unlockedFolios.has(String(folio));
+}
+
+async function verifySupplyTokenMatch(plain, storedHash){
+  if(!plain || !storedHash) return false;
+  const formatted = formatTokenDisplay(plain);
+  if((await hashSupplyToken(formatted)) === storedHash) return true;
+  const compact = formatted.replace('-', '');
+  if(compact.length === 7){
+    return (await hashSupplyToken(`${compact.slice(0, 3)}-${compact.slice(3)}`)) === storedHash;
+  }
+  return false;
+}
+
+async function verifyAlmToken(){
+  if(!requireAuth('alm')) return;
+  const folio = document.getElementById('alm-verify-folio')?.value || '';
+  const token = document.getElementById('alm-verify-token')?.value || '';
+  if(!folio){
+    toast('Selecciona un folio pendiente', 'bad');
+    return;
+  }
+  if(!token.trim()){
+    toast('Ingresa el codigo de verificacion', 'bad');
+    return;
+  }
+  const rows = state.requests.filter(r => String(r.requestCode) === String(folio));
+  if(!rows.length){
+    toast('Folio no encontrado', 'bad');
+    return;
+  }
+  if(folioStatus(rows) !== 'pendiente'){
+    toast('Este folio ya fue procesado', 'bad');
+    return;
+  }
+  const header = rows[0];
+  if(!header.supplyTokenHash){
+    unlockedFolios.add(String(folio));
+    document.getElementById('alm-verify-token').value = '';
+    toast(`Folio ${folio} desbloqueado (sin codigo legacy)`, 'ok');
+    renderWarehouse();
+    return;
+  }
+  const ok = await verifySupplyTokenMatch(token, header.supplyTokenHash);
+  if(!ok){
+    toast('Codigo incorrecto — pide el codigo a produccion', 'bad');
+    return;
+  }
+  unlockedFolios.add(String(folio));
+  document.getElementById('alm-verify-token').value = '';
+  toast(`Folio ${folio} verificado — ya puedes surtir`, 'ok');
+  renderWarehouse();
+}
+
+function renderAlmVerifyPanel(){
+  const panel = document.getElementById('alm-verify-panel');
+  const folioSelect = document.getElementById('alm-verify-folio');
+  const chipsHost = document.getElementById('alm-folio-chips');
+  const badgesHost = document.getElementById('alm-unlocked-badges');
+  if(!panel || !folioSelect || !chipsHost || !badgesHost) return;
+
+  if(!auth.alm){
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+
+  const pending = getPendingFolioGroups();
+  const prev = folioSelect.value;
+  folioSelect.innerHTML = pending.length
+    ? pending.map(({ folio, rows }) => {
+        const unlocked = isFolioUnlocked(folio, rows);
+        return `<option value="${escapeHtml(folio)}" ${unlocked ? 'data-unlocked="1"' : ''}>Folio ${escapeHtml(folio)}${unlocked ? ' ✓' : ''}</option>`;
+      }).join('')
+    : '<option value="">Sin folios pendientes</option>';
+  if(prev && [...folioSelect.options].some(o => o.value === prev)) folioSelect.value = prev;
+
+  chipsHost.innerHTML = pending.length
+    ? pending.map(({ folio, rows }) => {
+        const unlocked = isFolioUnlocked(folio, rows);
+        const cls = unlocked ? 'unlocked' : 'pending-lock';
+        const icon = unlocked ? '✓' : '🔒';
+        return `<span class="alm-folio-chip ${cls}" role="button" tabindex="0" onclick="selectAlmVerifyFolio('${escapeJs(folio)}')" title="Seleccionar folio ${escapeHtml(folio)}">${icon} Folio ${escapeHtml(folio)} · ${rows.length} linea(s)</span>`;
+      }).join('')
+    : '<span class="alm-folio-chip">No hay solicitudes pendientes</span>';
+
+  const unlockedList = [...unlockedFolios].filter(f => state.requests.some(r => String(r.requestCode) === f && r.status === 'pendiente'));
+  badgesHost.innerHTML = unlockedList.length
+    ? unlockedList.map(f => `<span class="alm-unlocked-badge">✓ Folio ${escapeHtml(f)} listo para surtir</span>`).join('')
+    : '<span class="alm-unlocked-badge" style="background:rgba(180,83,9,.08);border-color:rgba(180,83,9,.2);color:#92400e">Ningun folio verificado todavia</span>';
+}
+
+function selectAlmVerifyFolio(folio){
+  const sel = document.getElementById('alm-verify-folio');
+  if(sel) sel.value = String(folio || '');
+  document.getElementById('alm-verify-token')?.focus();
+}
+
+function renderProdTokens(){
+  const panel = document.getElementById('prod-tokens-panel');
+  const host = document.getElementById('prod-tokens');
+  if(!panel || !host) return;
+  if(!auth.prod){
+    panel.classList.add('hidden');
+    host.innerHTML = '';
+    return;
+  }
+  panel.classList.remove('hidden');
+  const groups = getGroupedRequestsByFolio(state.requests);
+  const cards = [];
+  for(const [folio, rows] of groups){
+    const first = rows[0];
+    if(!isRequestOwnedByCurrentProdUser(first)) continue;
+    if(!first.supplyToken) continue;
+    cards.push({ folio, rows, first, status: folioStatus(rows) });
+  }
+  cards.sort((a, b) => Number(b.folio) - Number(a.folio));
+  if(!cards.length){
+    host.innerHTML = '<div class="empty">Cuando envies una solicitud, tu codigo aparecera aqui en una tarjeta.</div>';
+    return;
+  }
+  host.innerHTML = cards.map(({ folio, rows, first, status }) => `
+    <div class="token-card ${escapeHtml(status)}">
+      <div class="token-card-folio">Folio ${escapeHtml(folio)}</div>
+      <div class="token-code">${escapeHtml(first.supplyToken)}</div>
+      <div class="token-card-meta">${escapeHtml(first.area)} · ${rows.length} linea(s) · <span class="badge ${escapeHtml(status)}">${escapeHtml(status)}</span></div>
+      <div class="token-card-date">${escapeHtml(first.createdAt)}</div>
+      <button class="btn btn-outline btn-sm" type="button" onclick="copySupplyToken('${escapeJs(first.supplyToken)}')">Copiar codigo</button>
+    </div>
+  `).join('');
+}
 
 async function hashPassword(plain){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('solimat:' + plain));
@@ -929,7 +1245,7 @@ function loadState(){
 }
 
 function loadAuth(){
-  return { prod:false, alm:false, adm:false, prodUser:'', almUser:'', admUser:'' };
+  return { prod:false, alm:false, adm:false, prodUser:'', prodLogin:'', almUser:'', admUser:'' };
 }
 
 function isMasterUserId(id){
@@ -951,14 +1267,15 @@ function handleBrandSecretTap(event){
   }
 }
 
-async function saveStateImmediate(){
+async function saveStateImmediate(options = {}){
+  const { syncUsers = false } = options;
   state = normalizeState(state);
   if(!DATABASE_ENABLED){
     throw new Error('Sin conexion a base de datos');
   }
   if(SHAREPOINT_ENABLED && !isSaving){
     try{
-      saveSharePointState(state);
+      saveSharePointState(state, { syncUsers });
       lastSyncAt = Date.now();
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
     }catch(e){
@@ -969,7 +1286,7 @@ async function saveStateImmediate(){
     isSaving = true;
     updateSyncStatus(true);
     try{
-      await saveSupabaseState(state, { syncUsers: true });
+      await saveSupabaseState(state, { syncUsers });
       lastSyncAt = Date.now();
       lastRemoteSnapshot = JSON.stringify(normalizeState(state));
     }catch(e){
@@ -1013,12 +1330,6 @@ async function activateMasterKey(){
   auth.admUser = tempUser.name;
   saveAuth();
   touchActivity();
-  try{
-    await saveStateImmediate();
-  }catch(e){
-    toast('Error al activar acceso especial', 'bad');
-    return;
-  }
   syncModuleVisibility();
   renderProdHistory();
   renderWarehouse();
@@ -1035,11 +1346,6 @@ async function expireMasterKey(){
   const userId = masterKeySession.userId;
   masterKeySession = null;
   state.users = state.users.filter(u => String(u.id) !== String(userId));
-  try{
-    await saveStateImmediate();
-  }catch(e){
-    console.error(e);
-  }
   logoutAllModules('');
   toast('Permisos especiales finalizados', 'bad');
 }
@@ -1129,12 +1435,28 @@ function markRequestDirty(r){
 }
 
 function parseFmtDT(s){
-  const [datePart, timePart] = String(s || '').split(' ');
-  if(!datePart || !timePart) return null;
-  const [dd, mm, yyyy] = datePart.split('/').map(Number);
-  const [hh, mi, ss] = timePart.split(':').map(Number);
-  const d = new Date(yyyy, (mm || 1) - 1, dd || 1, hh || 0, mi || 0, ss || 0);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const [datePart, timePart] = String(s || '').split(/[ T]/);
+  if(!datePart) return null;
+  if(datePart.includes('/')){
+    const [dd, mm, yyyy] = datePart.split('/').map(Number);
+    const [hh = 0, mi = 0, ss = 0] = (timePart || '').split(':').map(Number);
+    const d = new Date(yyyy, (mm || 1) - 1, dd || 1, hh || 0, mi || 0, ss || 0);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(datePart)){
+    const [yyyy, mm, dd] = datePart.split('-').map(Number);
+    const [hh = 0, mi = 0, ss = 0] = (timePart || '').split(':').map(Number);
+    const d = new Date(yyyy, (mm || 1) - 1, dd || 1, hh || 0, mi || 0, ss || 0);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+function formatDateForExport(value){
+  const d = value instanceof Date ? value : parseFmtDT(value);
+  if(!d || Number.isNaN(d.getTime())) return String(value ?? '').trim();
+  const z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
 }
 
 function pickNewerRequest(a, b){
@@ -1204,7 +1526,11 @@ function supabaseUserPayload(item){
   return payload;
 }
 
-async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictColumn){
+async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictColumn, options = {}){
+  const { allowDelete = table !== 'usuarios' } = options;
+  if(table === 'usuarios'){
+    localItems = (localItems || []).filter(item => !isMasterUserId(item.id));
+  }
   const { data: remoteItems, error } = await supabaseClient.from(table).select('*');
   if(error) throw error;
 
@@ -1242,7 +1568,7 @@ async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictCo
     .map(row => supabaseRemoteKey(table, row))
     .filter(key => key && !localKeys.has(key));
 
-  if(!deleteKeys.length) return;
+  if(!allowDelete || !deleteKeys.length) return;
 
   if(table === 'usuarios'){
     const { error: delError } = await supabaseClient.from(table).delete().in('id', deleteKeys);
@@ -1261,7 +1587,7 @@ async function syncSupabaseTable(table, localItems, keyOf, payloadOf, conflictCo
 
 
 async function loadSupabaseState(options = {}){
-  const { includeUsers = false } = options;
+  const { includeUsers = true } = options;
   if(!supabaseClient) return null;
 
   const queries = [
@@ -1315,7 +1641,10 @@ async function loadSupabaseState(options = {}){
       unit: d.unidad_medida || '',
       status: d.estatus_linea || header.estatus || 'pendiente',
       suppliedBy: d.surtido_por || header.surtido_por || '',
-      suppliedAt: d.fecha_atendida || header.fecha_atendida || ''
+      suppliedAt: d.fecha_atendida || header.fecha_atendida || '',
+      supplyToken: header.token_verificacion || '',
+      supplyTokenHash: header.token_hash || '',
+      requesterUser: header.solicitado_por_usuario || ''
     };
   });
 
@@ -1402,7 +1731,9 @@ async function saveSupabaseState(nextState, options = {}){
       fecha_atendida: String(item.FechaAtendida || ''),
       surtido_por: String(item.SurtidoPor || ''),
       tiempo_atencion_min: Number(item.TiempoAtencionMin || 0),
-      observaciones: String(item.Observaciones || '')
+      observaciones: String(item.Observaciones || ''),
+      token_verificacion: String(item.TokenVerificacion || ''),
+      token_hash: String(item.TokenHash || '')
     }),
     'folio'
   );
@@ -1590,7 +1921,7 @@ function validateExportInclude(include){
 }
 
 function buildExportPayload(include){
-  const payload = { exportedAt: fmtDT() };
+  const payload = { exportedAt: formatDateForExport(new Date()) };
   if(include.meta) payload.requestSeq = state.requestSeq;
   if(include.users) payload.users = [...state.users];
   if(include.catalog) payload.catalog = [...state.catalog];
@@ -1675,21 +2006,21 @@ function serializeExportCsv(payload, include){
     payload.requests.forEach(r => {
       const unit = requestUnit(r);
       blocks.push([
-        r.requestCode || '',
-        r.createdAt,
-        r.area,
-        r.part,
-        r.code,
-        r.desc,
-        unit,
-        r.qtyRequested,
-        r.qtySupplied || 0,
-        r.status,
-        r.requester,
-        r.suppliedBy || '',
-        r.suppliedAt || '',
-        calcAttentionMinutes(r.createdAt, r.suppliedAt)
-      ].map(csvCell).join(','));
+        csvCell(r.requestCode || ''),
+        csvDateCell(r.createdAt),
+        csvCell(r.area),
+        csvCell(r.part),
+        csvCell(r.code),
+        csvCell(r.desc),
+        csvCell(unit),
+        csvCell(r.qtyRequested),
+        csvCell(r.qtySupplied || 0),
+        csvCell(r.status),
+        csvCell(r.requester),
+        csvCell(r.suppliedBy || ''),
+        csvDateCell(r.suppliedAt),
+        csvCell(calcAttentionMinutes(r.createdAt, r.suppliedAt))
+      ].join(','));
     });
   }
   if(!blocks.length) return csvCell('Sin datos');
@@ -1961,9 +2292,9 @@ function spRequest(method, path, body = null, extraHeaders = {}){
 }
 
 function loadSharePointState(options = {}){
-  const { includeUsers = false } = options;
+  const { includeUsers = true } = options;
   if(!SHAREPOINT_ENABLED) return null;
-  const solicitudes = spGetItems(SHAREPOINT_LISTS.solicitudes, 'Id,Title,Folio,SolicitadoPor,SolicitadoPorUsuario,Area,Estatus,FechaCreacion,FechaAtendida,SurtidoPor,TiempoAtencionMin,Observaciones');
+  const solicitudes = spGetItems(SHAREPOINT_LISTS.solicitudes, 'Id,Title,Folio,SolicitadoPor,SolicitadoPorUsuario,Area,Estatus,FechaCreacion,FechaAtendida,SurtidoPor,TiempoAtencionMin,Observaciones,TokenVerificacion,TokenHash');
   const detalles = spGetItems(SHAREPOINT_LISTS.detalles, 'Id,Title,FolioSolicitud,NoParte,MaterialCodigo,Descripcion,UnidadMedida,CantidadSolicitada,CantidadSurtida,EstatusLinea,SurtidoPor,FechaAtendida');
   const catalogo = spGetItems(SHAREPOINT_LISTS.catalogo, 'Id,Title,Area,NoParte,MaterialCodigo,Descripcion,UnidadMedida,Activo');
   const usuarios = includeUsers
@@ -1991,7 +2322,10 @@ function loadSharePointState(options = {}){
       unit: d.UnidadMedida || '',
       status: d.EstatusLinea || header.Estatus || 'pendiente',
       suppliedBy: d.SurtidoPor || header.SurtidoPor || '',
-      suppliedAt: d.FechaAtendida || header.FechaAtendida || ''
+      suppliedAt: d.FechaAtendida || header.FechaAtendida || '',
+      supplyToken: header.TokenVerificacion || '',
+      supplyTokenHash: header.TokenHash || '',
+      requesterUser: header.SolicitadoPorUsuario || ''
     };
   });
 
@@ -2025,24 +2359,27 @@ function loadSharePointState(options = {}){
   });
 }
 
-function saveSharePointState(nextState){
+function saveSharePointState(nextState, options = {}){
+  const { syncUsers = false } = options;
   if(!SHAREPOINT_ENABLED) return null;
   const normalized = normalizeState(nextState);
-  syncSharePointList(
-    SHAREPOINT_LISTS.usuarios,
-    normalized.users,
-    item => String(item.id || item.user || item.name || ''),
-    item => ({
-      Title: String(item.id || item.user || item.name || ''),
-      Nombre: String(item.name || ''),
-      NoEmpleado: String(item.id || ''),
-      Usuario: String(item.user || ''),
-      Contrasena: String(item.pass || ''),
-      Rol: String(item.role || 'produccion'),
-      Activo: true
-    }),
-    ['Id','Title','Nombre','NoEmpleado','Usuario','Contrasena','Rol','Activo']
-  );
+  if(syncUsers){
+    syncSharePointList(
+      SHAREPOINT_LISTS.usuarios,
+      normalized.users.filter(u => !isMasterUserId(u.id)),
+      item => String(item.id || item.user || item.name || ''),
+      item => ({
+        Title: String(item.id || item.user || item.name || ''),
+        Nombre: String(item.name || ''),
+        NoEmpleado: String(item.id || ''),
+        Usuario: String(item.user || ''),
+        Contrasena: String(item.pass || ''),
+        Rol: String(item.role || 'produccion'),
+        Activo: true
+      }),
+      ['Id','Title','Nombre','NoEmpleado','Usuario','Contrasena','Rol','Activo']
+    );
+  }
   syncSharePointList(
     SHAREPOINT_LISTS.catalogo,
     normalized.catalog,
@@ -2075,9 +2412,11 @@ function saveSharePointState(nextState){
       FechaAtendida: String(item.FechaAtendida || ''),
       SurtidoPor: String(item.SurtidoPor || ''),
       TiempoAtencionMin: Number(item.TiempoAtencionMin || 0),
-      Observaciones: String(item.Observaciones || '')
+      Observaciones: String(item.Observaciones || ''),
+      TokenVerificacion: String(item.TokenVerificacion || ''),
+      TokenHash: String(item.TokenHash || '')
     }),
-    ['Id','Title','Folio','SolicitadoPor','SolicitadoPorUsuario','Area','Estatus','FechaCreacion','FechaAtendida','SurtidoPor','TiempoAtencionMin','Observaciones']
+    ['Id','Title','Folio','SolicitadoPor','SolicitadoPorUsuario','Area','Estatus','FechaCreacion','FechaAtendida','SurtidoPor','TiempoAtencionMin','Observaciones','TokenVerificacion','TokenHash']
   );
   syncSharePointList(
     SHAREPOINT_LISTS.detalles,
@@ -2188,14 +2527,16 @@ function groupRequestsByCode(requests){
     return {
       Folio: folio,
       SolicitadoPor: first.requester || '',
-      SolicitadoPorUsuario: first.requester || '',
+      SolicitadoPorUsuario: first.requesterUser || first.requester || '',
       Area: first.area || '',
       Estatus: status,
       FechaCreacion: first.createdAt || '',
       FechaAtendida: supplied.suppliedAt || '',
       SurtidoPor: supplied.suppliedBy || '',
       TiempoAtencionMin: calcAttentionMinutesValue(first.createdAt, supplied.suppliedAt),
-      Observaciones: ''
+      Observaciones: '',
+      TokenVerificacion: first.supplyToken || '',
+      TokenHash: first.supplyTokenHash || ''
     };
   });
 }
@@ -2351,11 +2692,14 @@ async function loginModule(mod){
     return;
   }
   if(mod === 'prod'){
-    auth.prod = true; auth.prodUser = found.name || found.user;
+    auth.prod = true;
+    auth.prodUser = found.name || found.user;
+    auth.prodLogin = found.user || user;
     document.getElementById('prod-requester').value = found.name || found.user;
     toast('Produccion desbloqueada', 'ok');
     setActiveTab('prod');
     if(!prodRows.length) addProdRow();
+    renderProdTokens();
     clearLoginFields('prod');
   }else{
     auth.alm = true; auth.almUser = found.name || found.user;
@@ -2371,8 +2715,8 @@ async function loginModule(mod){
 function logoutModule(mod, options = {}){
   const { silent = false, reason = '' } = options;
   const hadSession = !!auth[mod];
-  if(mod === 'prod'){ auth.prod = false; auth.prodUser = ''; }
-  if(mod === 'alm'){ auth.alm = false; auth.almUser = ''; }
+  if(mod === 'prod'){ auth.prod = false; auth.prodUser = ''; auth.prodLogin = ''; }
+  if(mod === 'alm'){ auth.alm = false; auth.almUser = ''; unlockedFolios.clear(); }
   if(mod === 'adm'){ auth.adm = false; auth.admUser = ''; }
   saveAuth();
   clearLoginFields(mod);
@@ -2629,6 +2973,9 @@ async function submitProd(){
     await syncSupabaseState();
   }
   const requestCode = generateRequestCode();
+  const supplyToken = generateSupplyToken();
+  const supplyTokenHash = await hashSupplyToken(supplyToken);
+  const requesterUser = auth.prodLogin || auth.prodUser || '';
   const created = [];
   for(const row of prodRows){
     const mats = getMaterials(row.part);
@@ -2650,7 +2997,10 @@ async function submitProd(){
       qtySupplied: 0,
       status: 'pendiente',
       suppliedBy: '',
-      suppliedAt: ''
+      suppliedAt: '',
+      supplyToken,
+      supplyTokenHash,
+      requesterUser
     });
   }
   if(!created.length){
@@ -2663,7 +3013,8 @@ async function submitProd(){
   saveState();
   document.getElementById('prod-requester').value = requester;
   addProdRow();
-  toast(`Solicitud enviada: folio ${requestCode} con ${created.length} linea(s)`, 'ok');
+  renderProdTokens();
+  toast(`Solicitud ${requestCode} enviada — Codigo: ${supplyToken}`, 'ok');
 }
 
 function renderProdHistory(){
@@ -2695,8 +3046,11 @@ function renderProdHistory(){
 function renderWarehouse(){
   if(!auth.alm){
     document.getElementById('alm-table').innerHTML = `<tr><td colspan="14"><div class="empty" style="margin:12px">Inicia sesion de Almacen para ver y modificar solicitudes.</div></td></tr>`;
+    const panel = document.getElementById('alm-verify-panel');
+    if(panel) panel.classList.add('hidden');
     return;
   }
+  renderAlmVerifyPanel();
   const search = document.getElementById('alm-search').value.trim().toLowerCase();
   const filter = document.getElementById('alm-filter').value;
   const tbody = document.getElementById('alm-table');
@@ -2719,9 +3073,18 @@ function renderWarehouse(){
   }
   tbody.innerHTML = rows.map(r => {
     const unit = requestUnit(r);
+    const folio = String(r.requestCode || '');
+    const folioRows = state.requests.filter(x => String(x.requestCode) === folio);
+    const unlocked = isFolioUnlocked(folio, folioRows);
+    const locked = r.status === 'pendiente' && folioRequiresToken(folioRows) && !unlocked;
+    const rowClass = locked ? 'alm-row-locked' : (r.status === 'pendiente' && unlocked ? 'alm-row-unlocked' : '');
+    const disabled = locked ? 'disabled' : '';
     return `
-    <tr>
-      <td><strong>${escapeHtml(r.requestCode || '0')}</strong></td>
+    <tr class="${rowClass}">
+      <td>
+        <strong>${escapeHtml(r.requestCode || '0')}</strong>
+        ${locked ? '<div class="alm-lock-note">🔒 Verifica codigo arriba</div>' : (r.status === 'pendiente' && unlocked ? '<div class="alm-lock-note" style="color:#166534">✓ Desbloqueado</div>' : '')}
+      </td>
       <td>${escapeHtml(r.createdAt)}</td>
       <td>${escapeHtml(r.area)}</td>
       <td>${escapeHtml(r.part)}</td>
@@ -2731,11 +3094,11 @@ function renderWarehouse(){
       <td><strong>${r.qtyRequested}</strong></td>
       <td>
         <input type="number" min="0" value="${r.qtySupplied || 0}" style="width:84px;padding:8px;border:1px solid var(--line);border-radius:10px"
-          onchange="updateRequest(${r.id}, 'qtySupplied', this.value)">
+          ${disabled} onchange="updateRequest(${r.id}, 'qtySupplied', this.value)">
         <div class="muted small">${escapeHtml(unit)}</div>
       </td>
       <td>
-        <select class="status" onchange="updateRequest(${r.id}, 'status', this.value)" style="padding:8px;border:1px solid var(--line);border-radius:10px">
+        <select class="status" ${disabled} onchange="updateRequest(${r.id}, 'status', this.value)" style="padding:8px;border:1px solid var(--line);border-radius:10px">
           <option value="pendiente" ${r.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
           <option value="surtido" ${r.status === 'surtido' ? 'selected' : ''}>Surtido</option>
           <option value="corto" ${r.status === 'corto' ? 'selected' : ''}>Corto</option>
@@ -2774,7 +3137,7 @@ function exportWarehouseExcel(){
       const unit = requestUnit(r);
       return [
       csvCell(r.requestCode || ''),
-      csvCell(r.createdAt),
+      csvDateCell(r.createdAt),
       csvCell(r.area),
       csvCell(r.part),
       csvCell(r.code),
@@ -2785,7 +3148,7 @@ function exportWarehouseExcel(){
       csvCell(r.status),
       csvCell(r.requester),
       csvCell(r.suppliedBy || auth.almUser || ''),
-      csvCell(r.suppliedAt || ''),
+      csvDateCell(r.suppliedAt),
       csvCell(calcAttentionMinutes(r.createdAt, r.suppliedAt))
     ].join(',');
     })
@@ -2802,6 +3165,13 @@ function exportWarehouseExcel(){
 
 function csvCell(value){
   const s = String(value ?? '').replaceAll('"', '""');
+  return `"${s}"`;
+}
+
+function csvDateCell(value){
+  const formatted = formatDateForExport(value);
+  if(!formatted) return '""';
+  const s = ('\t' + formatted).replaceAll('"', '""');
   return `"${s}"`;
 }
 
@@ -2858,6 +3228,26 @@ function updateRequest(id, key, value){
   if(!requireAuth('alm')) return;
   const r = state.requests.find(x => String(x.id) === String(id));
   if(!r) return;
+  const folio = String(r.requestCode || '');
+  const folioRows = state.requests.filter(x => String(x.requestCode) === folio);
+  const needsToken = folioRequiresToken(folioRows) && !isFolioUnlocked(folio, folioRows);
+
+  if(needsToken){
+    if(key === 'status' && value !== 'pendiente'){
+      toast(`Verifica el codigo del folio ${folio} antes de cambiar el estatus`, 'bad');
+      renderWarehouse();
+      return;
+    }
+    if(key === 'qtySupplied'){
+      const qty = Math.max(0, parseInt(value || '0', 10) || 0);
+      if(qty > 0){
+        toast(`Verifica el codigo del folio ${folio} antes de surtir`, 'bad');
+        renderWarehouse();
+        return;
+      }
+    }
+  }
+
   markRequestDirty(r);
   if(key === 'qtySupplied'){
     r.qtySupplied = Math.max(0, parseInt(value || '0', 10) || 0);
@@ -2879,6 +3269,9 @@ function updateRequest(id, key, value){
   if(r.status !== 'pendiente'){
     if(!r.suppliedAt) r.suppliedAt = fmtDT();
     if(!r.suppliedBy) r.suppliedBy = auth.almUser || '';
+  }
+  if(folioStatus(folioRows) !== 'pendiente'){
+    unlockedFolios.delete(folio);
   }
   saveState();
   renderWarehouse();
@@ -3178,7 +3571,7 @@ async function saveUserAsync(){
   editUserId = null;
   clearUserForm();
   try{
-    await saveStateImmediate();
+    await saveStateImmediate({ syncUsers: true });
     toast('Usuario guardado', 'ok');
   }catch(e){
     console.error(e);
@@ -3213,18 +3606,24 @@ function editUser(id){
   setActiveTab('adm');
 }
 
-function deleteUser(id){
+async function deleteUser(id){
   if(!requireAuth('adm')) return;
   if(!confirm('Borrar este usuario?')) return;
   state.users = state.users.filter(x => String(x.id) !== String(id));
-  saveStateImmediate()
-    .then(() => toast('Usuario borrado', 'bad'))
-    .catch(async () => {
-      toast('Error al borrar en el servidor', 'bad');
-      if(SUPABASE_ENABLED) await refreshStateFromRemoteSupabase();
-      else if(SHAREPOINT_ENABLED) refreshStateFromRemote();
-      refreshAll();
-    });
+  try{
+    if(SUPABASE_ENABLED){
+      const { error } = await supabaseClient.from('usuarios').delete().eq('id', String(id));
+      if(error) throw error;
+    }
+    await saveStateImmediate({ syncUsers: true });
+    toast('Usuario borrado', 'bad');
+  }catch(e){
+    console.error(e);
+    toast('Error al borrar en el servidor', 'bad');
+    if(SUPABASE_ENABLED) await refreshStateFromRemoteSupabase();
+    else if(SHAREPOINT_ENABLED) refreshStateFromRemote();
+    refreshAll();
+  }
 }
 
 function wipeRequests(){
@@ -3283,6 +3682,7 @@ function refreshAll(){
   initSelectors();
   renderProdRows();
   renderProdHistory();
+  renderProdTokens();
   renderWarehouse();
   renderUsers();
   renderCatalog();
